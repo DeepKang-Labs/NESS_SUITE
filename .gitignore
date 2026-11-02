@@ -1,0 +1,59 @@
+# ── Secrets & config locale ─────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# ── Bases de données & artefacts runtime ────────────────
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+tempmail.db*
+burn_unlock_locks.json
+
+# ── Dossiers de données utilisateurs ────────────────────
+burn_data/
+storage_data/
+storage_data_dummy/
+
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ── Logs & runtime ──────────────────────────────────────
+*.log
+nohup.out
+*.pid
+*.sock
+
+# ── OS & IDE ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# ── Backups locaux ──────────────────────────────────────
+*.bak
+*.bak_*
+*.old
+*.orig
+*_backup*

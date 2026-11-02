@@ -1,0 +1,450 @@
+/* NESS Burn — product chrome only; plans/hero/cards come from app.css */
+
+.burn-hints {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  opacity: 0.9;
+}
+
+.burn-plan-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.compose-limits {
+  font-size: 0.8rem;
+  color: var(--muted);
+  flex: 1 1 auto;
+}
+
+.burn-dropzone {
+  padding: 1.35rem 1.15rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--plan-bg);
+  cursor: pointer;
+  transition: border-color var(--t), background var(--t);
+}
+.burn-dropzone.drag {
+  border-color: var(--line-hi);
+  background: var(--plan-bg-hover);
+}
+.dz-inner { text-align: center; pointer-events: none; }
+.dz-icon { color: var(--accent); margin-bottom: 0.45rem; opacity: 0.85; }
+.dz-title { font-weight: 600; color: var(--text-hi); margin: 0; font-size: 0.95rem; }
+.dz-sub { margin: 0.28rem 0 0; font-size: 0.8rem; color: var(--muted); }
+
+.file-list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.file-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--plan-bg);
+  border: 1px solid var(--line);
+  font-size: 0.84rem;
+}
+.file-list .fname {
+  font-family: "JetBrains Mono", monospace;
+  color: var(--text-hi);
+  word-break: break-all;
+}
+.file-list .fmeta { color: var(--muted); font-size: 0.75rem; flex-shrink: 0; }
+.file-list.solid { margin-top: 0.85rem; }
+
+.burn-audio {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.audio-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+.audio-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.audio-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: "JetBrains Mono", monospace;
+}
+.audio-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+}
+.rec-timer {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  color: var(--text-hi);
+  min-width: 3rem;
+}
+#btn-rec[aria-pressed="true"] {
+  background: var(--danger);
+  border-color: transparent;
+}
+.opt-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+.audio-fineprint {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--muted);
+  max-width: 52ch;
+}
+.audio-preview {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.audio-preview audio {
+  width: 100%;
+  max-width: 320px;
+  height: 36px;
+}
+
+.burn-options {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+.opt-password {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+.opt-password label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.opt-password input {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  color: var(--text-hi);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+}
+
+.link-qr {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.75rem;
+  display: inline-block;
+  background: #fff;
+  border-radius: var(--radius-sm);
+}
+.dl-status {
+  font-size: 0.9rem;
+  color: var(--text);
+  margin: 0 0 0.75rem;
+}
+
+/* Mic button — WhatsApp / Telegram style */
+.mic-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(0, 255, 65, 0.22);
+  transition: transform var(--t), box-shadow var(--t), background var(--t);
+}
+.mic-btn:hover { transform: scale(1.04); }
+.mic-btn:active { transform: scale(0.96); }
+.mic-btn[aria-pressed="true"] {
+  background: var(--danger);
+  box-shadow: 0 4px 16px rgba(255, 59, 92, 0.3);
+  animation: mic-pulse 1.2s ease infinite;
+}
+.mic-btn svg { display: block; }
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 92, 0.35); }
+  50% { box-shadow: 0 0 0 10px rgba(255, 59, 92, 0); }
+}
+[data-theme="light"] .mic-btn { color: #fff; }
+
+/* Secure note */
+.burn-note {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.note-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+.note-count {
+  margin-left: auto;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.note-count.is-over { color: var(--danger); }
+.note-editor {
+  min-height: 140px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  color: var(--text-hi);
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 1.02rem;
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+  outline: none;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.note-editor:focus {
+  border-color: var(--line-hi);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.note-editor:empty:before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  pointer-events: none;
+}
+.note-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.75rem auto;
+  display: block;
+}
+
+
+.dl-preview {
+  margin: 0.85rem 0 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+}
+.dl-preview .note-view {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 1.02rem;
+  line-height: 1.75;
+  color: var(--text-hi);
+  letter-spacing: -0.01em;
+}
+.dl-preview .note-view img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.75rem auto;
+  display: block;
+}
+.dl-preview audio {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+.dl-preview .preview-img {
+  max-width: 100%;
+  border-radius: 8px;
+  display: block;
+  margin: 0 auto;
+}
+.dl-preview .preview-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 0.55rem;
+}
+
+/* Recipient note typography — calm, readable, premium */
+.note-view {
+  font-family: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: var(--text-hi);
+  letter-spacing: -0.01em;
+  font-weight: 400;
+}
+.note-view p { margin: 0 0 1em; }
+.note-view img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1.1rem auto;
+  display: block;
+}
+.note-editor {
+  font-family: "Newsreader", "Iowan Old Style", Palatino, Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 1.8;
+}
+#dl-files li.is-active {
+  border-color: var(--line-hi);
+  background: var(--plan-bg-sel);
+}
+#btn-dl-unlock {
+  width: 100%;
+  margin-top: 0.65rem;
+}
+
+.preview-block + .preview-block {
+  margin-top: 1.25rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--line);
+}
+
+
+/* WhatsApp-style voice player */
+.wa-player {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 420px;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  background: var(--plan-bg);
+  border: 1px solid var(--line);
+}
+.wa-play {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 3px 12px rgba(0, 255, 65, 0.2);
+  transition: transform var(--t), background var(--t);
+}
+.wa-play:hover { transform: scale(1.04); }
+[data-theme="light"] .wa-play { color: #fff; }
+.wa-play svg { width: 18px; height: 18px; display: block; }
+.wa-wave {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  min-width: 0;
+  cursor: pointer;
+}
+.wa-wave span {
+  flex: 1 1 0;
+  height: 20%;
+  min-height: 4px;
+  max-height: 100%;
+  border-radius: 2px;
+  background: var(--muted);
+  opacity: 0.55;
+  transition: height 80ms linear, background 120ms ease, opacity 120ms ease;
+}
+.wa-player.is-playing .wa-wave span {
+  background: var(--accent);
+  opacity: 0.85;
+  animation: wa-bar 0.9s ease-in-out infinite;
+}
+.wa-player.is-playing .wa-wave span:nth-child(2n) { animation-delay: 0.12s; }
+.wa-player.is-playing .wa-wave span:nth-child(3n) { animation-delay: 0.24s; }
+.wa-player.is-playing .wa-wave span:nth-child(4n) { animation-delay: 0.06s; }
+@keyframes wa-bar {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+.wa-time {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  min-width: 3.2rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+.audio-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+.audio-preview #audio-player-mount { width: 100%; }
+
+/* Force editorial face everywhere notes appear */
+.note-editor,
+.note-view,
+.dl-preview .note-view,
+.preview-block .note-view,
+#dl-preview .note-view {
+  font-family: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif !important;
+  font-size: 1.125rem;
+  line-height: 1.8;
+  letter-spacing: -0.01em;
+  color: var(--text-hi);
+}
+
+#opt-password-wrap[hidden],
+#dl-password-wrap[hidden] {
+  display: none !important;
+}
+
+.burn-privacy-note {
+  width: 100%;
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.actions .burn-privacy-note {
+  flex: 1 1 100%;
+}

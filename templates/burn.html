@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NESS Burn — Publish &amp; vanish</title>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem("ness_theme") === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (e) {}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="stylesheet" href="/static/css/burn.css">
+</head>
+<body>
+<div id="toasts"></div>
+
+<div class="overlay" id="pay-modal">
+  <div class="modal">
+    <h3 id="pay-title">Activate plan</h3>
+    <p class="sub" id="pay-sub">Send the exact amount in NCH, then paste the transaction hash.</p>
+    <div class="pay-box">
+      <div class="pay-label">Payment address</div>
+      <div class="pay-addr-row">
+        <div class="pay-addr" id="pay-address">—</div>
+        <button type="button" class="pay-icon-btn" id="btn-copy-pay" title="Copy address" aria-label="Copy payment address">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>
+      <div class="pay-amount" id="pay-amount">0 <span>NCH</span></div>
+    </div>
+    <div class="pay-label" style="margin-bottom:0.4rem;">Transaction hash</div>
+    <input type="text" id="tx-hash" placeholder="Paste tx hash" autocomplete="off" spellcheck="false">
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-pay-cancel">Cancel</button>
+      <button type="button" class="btn btn-sm" id="btn-pay-confirm">Verify &amp; upload</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light / dark mode" title="Toggle theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 14.3A8.5 8.5 0 0 1 9.7 3a7 7 0 1 0 11.3 11.3z"/>
+      </svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+    </button>
+    <h1><span class="ness">NESS</span> Burn</h1>
+    <p class="tagline">Publish content · Then it vanishes · Powered by PrivateNess Network</p>
+    <p class="burn-hints">Sources · journalism · whistleblowing · one-time handoff</p>
+    <div class="status-wrap">
+      <div class="status-pill">
+        <span class="status-dot" id="burn-dot"></span>
+        <span id="burn-status-label">Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="card" id="plans-card">
+    <div class="section-label">Select a plan &amp; Pay with NESS Coin-hours (NCH)</div>
+    <div class="plans" id="plans"></div>
+    <div class="actions" id="plan-actions" style="margin-top:1.15rem;">
+      <button type="button" class="btn" id="btn-continue-plan">Continue with plan</button>
+    </div>
+  </div>
+
+  <div class="card" id="compose-card" style="display:none;">
+    <div class="section-label">Compose what you publish</div>
+    <div class="burn-plan-chip">
+      <span class="badge" id="compose-badge">Spark</span>
+      <span class="compose-limits" id="compose-limits"></span>
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" id="btn-change-plan" aria-label="Change plan" title="Change plan">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 18l-6-6 6-6"/><path d="M9 12h12"/></svg>
+      </button>
+    </div>
+
+    <div class="burn-dropzone" id="dropzone">
+      <input type="file" id="file-input" multiple hidden>
+      <div class="dz-inner">
+        <div class="dz-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        </div>
+        <p class="dz-title">Add documents or media</p>
+        <p class="dz-sub">or click to choose — avoid naming files with your identity</p>
+      </div>
+      <ul class="file-list" id="file-list"></ul>
+    </div>
+
+    <div class="burn-note" id="note-panel">
+      <div class="audio-head">
+        <span class="audio-title">Written content</span>
+        <span class="audio-hint" id="note-limit-hint">—</span>
+      </div>
+      <div class="note-toolbar">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-note-image" title="Insert image at cursor">Image</button>
+        <input type="file" id="note-image-input" accept="image/*" hidden>
+        <span class="note-count" id="note-count">0</span>
+      </div>
+      <div class="note-editor" id="note-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Write a private note… paste or insert images at the cursor."></div>
+    </div>
+
+    <div class="burn-audio" id="audio-panel">
+      <div class="audio-head">
+        <span class="audio-title">Voice note</span>
+        <span class="audio-hint" id="audio-limit-hint">—</span>
+      </div>
+      <div class="audio-controls">
+        <button type="button" class="mic-btn" id="btn-rec" aria-label="Record voice note" aria-pressed="false" title="Record">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
+          </svg>
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-rec-stop" disabled>Stop</button>
+        <span class="rec-timer" id="rec-timer">0:00</span>
+        <label class="opt-inline">
+          <input type="checkbox" id="opt-voice-anon" checked>
+          <span>Anonymize voice</span>
+        </label>
+      </div>
+      <p class="audio-fineprint">Noise reduction is on. Optional voice anonymize runs before the note is attached.</p>
+      <div class="audio-preview" id="audio-preview" hidden>
+        <div id="audio-player-mount"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-audio-discard">Discard</button>
+      </div>
+    </div>
+
+    <div class="burn-options" id="burn-options">
+      <label class="opt-row">
+        <input type="checkbox" id="opt-allow-view" checked>
+        <span>Allow in-browser viewing</span>
+      </label>
+      <label class="opt-row">
+        <input type="checkbox" id="opt-allow-download" checked>
+        <span>Allow download</span>
+      </label>
+      <label class="opt-row" id="opt-burn-wrap">
+        <input type="checkbox" id="opt-burn-after">
+        <span>Burn after last download</span>
+      </label>
+      <div class="opt-row opt-password" id="opt-password-wrap" hidden style="display:none" hidden>
+        <label for="opt-password">Passphrase</label>
+        <input type="password" id="opt-password" placeholder="Optional on Day+" autocomplete="new-password">
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top:1.15rem;">
+      <button type="button" class="btn btn-ghost" id="btn-author-preview">Preview as recipient</button>
+      <p class="fineprint burn-privacy-note" id="burn-privacy-note">
+      Before you publish: remove names from filenames, prefer view-only when possible, use a passphrase for sensitive material. Image metadata is stripped on this device when possible.
+    </p>
+    <button type="button" class="btn" id="btn-burn-go">Publish</button>
+    </div>
+  </div>
+
+  <div class="card" id="active-card" style="display:none;">
+    <div class="section-label">Published · live link</div>
+    <div class="address-box">
+      <span class="address-text" id="active-link">—</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-link">Copy</button>
+    </div>
+    <div class="meta-row">
+      <span class="badge plan-free" id="active-badge">Spark</span>
+      <span class="timer" id="active-timer">—</span>
+      <span style="font-size:0.8rem;color:var(--muted);" id="active-cap"></span>
+    </div>
+    <ul class="file-list solid" id="active-files"></ul>
+    <div class="actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-renew-drop">Renew</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-new-drop">New drop</button>
+    </div>
+  </div>
+
+  <div class="card" id="download-card" style="display:none;">
+    <div class="section-label">Shared content</div>
+    <p class="dl-status" id="dl-status">Loading…</p>
+    <div class="meta-row">
+      <span class="badge plan-free" id="dl-badge">Drop</span>
+      <span class="timer" id="dl-timer">—</span>
+    </div>
+    <div class="opt-row opt-password" id="dl-password-wrap" hidden>
+      <label for="dl-password">Passphrase</label>
+      <input type="password" id="dl-password" placeholder="Required" autocomplete="current-password">
+      <button type="button" class="btn btn-sm" id="btn-dl-unlock" style="margin-top:0.5rem;">Unlock</button>
+    </div>
+    <div id="dl-preview" class="dl-preview" hidden></div>
+    <ul class="file-list solid" id="dl-files"></ul>
+  </div>
+
+  <p class="foot">Published content is destroyed at expiry and after burn rules. No recovery — by design.</p>
+</div>
+
+<script>
+const PAY_ADDRESS = {{ pay_address|tojson }};
+const TIERS = {{ tiers|tojson }};
+</script>
+<script src="/static/js/ness-crypto.js"></script>
+<script src="/static/js/confirm-modal.js"></script>
+<script src="/static/js/suite-nav.js"></script>
+<script src="/static/js/burn.js"></script>
+</body>
+</html>

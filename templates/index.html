@@ -1,0 +1,162 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NESS TempMail — Sovereign Ephemeral Mail</title>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem("ness_theme") === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (e) {}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<link rel="stylesheet" href="/static/css/app.css">
+
+</head>
+<body>
+<div id="toasts"></div>
+
+<div class="overlay" id="pay-modal">
+  <div class="modal">
+    <h3 id="pay-title">Activate plan</h3>
+    <p class="sub" id="pay-sub">Send the exact amount in NCH, then paste the transaction hash.</p>
+
+    <div class="pay-box">
+      <div class="pay-label">Payment address</div>
+      <div class="pay-addr-row">
+        <div class="pay-addr" id="pay-address">—</div>
+        <button type="button" class="pay-icon-btn" id="btn-copy-pay" title="Copy address" aria-label="Copy payment address" onclick="copyPayAddress()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>
+      <div class="pay-amount" id="pay-amount">0 <span>NCH</span></div>
+      <div class="pay-tools">
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-qr-toggle" onclick="togglePayQr()">Show QR code</button>
+      </div>
+      <div class="pay-qr-wrap" id="pay-qr-wrap">
+        <div class="pay-qr-frame" id="pay-qr-frame"></div>
+        <p class="pay-qr-hint">Scan to fill the payment address</p>
+      </div>
+    </div>
+
+    <div class="pay-label" style="margin-bottom:0.4rem;">Transaction hash</div>
+    <input type="text" id="tx-hash" placeholder="Paste tx hash" autocomplete="off" spellcheck="false">
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closePay()">Cancel</button>
+      <button class="btn btn-sm" onclick="confirmPay()">Verify payment</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light / dark mode" title="Toggle theme">
+      <!-- Moon (shown in dark mode → click to go light) -->
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 14.3A8.5 8.5 0 0 1 9.7 3a7 7 0 1 0 11.3 11.3z"/>
+      </svg>
+      <!-- Sun (shown in light mode → click to go dark) -->
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+    </button>
+    <h1><span class="ness">NESS</span> TempMail</h1>
+    <p class="tagline">Sovereign reception · Absolute privacy · Powered by PrivateNess Network</p>
+    <div class="status-wrap">
+      <div class="status-pill">
+        <span class="status-dot" id="smtp-dot"></span>
+        <span id="smtp-label">Checking…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Plan selection -->
+  <div class="card" id="plans-card">
+    <div class="section-label">Select a plan &amp; Pay with NESS Coin-hours (NCH)</div>
+    <div class="plans" id="plans"></div>
+
+    <div class="custom-row" id="custom-row">
+      <input type="text" id="custom-local" placeholder="local-part" maxlength="32" autocomplete="off" spellcheck="false">
+      <span class="domain" id="domain-hint">@domain</span>
+    </div>
+
+    <div class="actions" id="plan-actions" style="margin-top:1.15rem;">
+      <button class="btn" id="btn-create" onclick="createMailbox()">Create mailbox</button>
+      <button class="btn btn-ghost" id="btn-upgrade" style="display:none;" onclick="openPayForSelected()">Upgrade with NCH</button>
+    </div>
+  </div>
+
+  <!-- Active mailbox -->
+  <div class="card" id="mailbox-card" style="display:none;">
+    <div class="section-label">Active mailbox</div>
+    <div class="address-box">
+      <span class="address-text" id="email-address">—</span>
+      <button class="btn btn-ghost btn-sm" onclick="copyAddress()">Copy</button>
+    </div>
+    <div class="meta-row">
+      <span class="badge plan-free" id="plan-badge">Discovery</span>
+      <span class="timer" id="timer">--:--</span>
+      <span style="font-size:0.8rem;color:var(--muted);" id="cap-label"></span>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost btn-sm" id="btn-renew-mail" type="button">Renew</button>
+      <button class="btn btn-ghost btn-sm" onclick="showPlansForUpgrade()">Change plan</button>
+    </div>
+  </div>
+
+  <!-- Inbox -->
+  <div class="card" id="inbox-card" style="display:none;">
+    <div class="inbox-head">
+      <div class="section-label" style="margin-bottom:0;">Inbox</div>
+      <span class="inbox-count" id="inbox-count"></span>
+    </div>
+    <div class="msg-list" id="msg-list">
+      <div class="empty">
+        <svg class="empty-icon" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        No messages yet. Address is live.
+      </div>
+    </div>
+    <div class="pager" id="pager" style="display:none;">
+      <button type="button" id="pager-prev" onclick="inboxPrev()">← Prev</button>
+      <span class="pager-info" id="pager-info">1 / 1</span>
+      <button type="button" id="pager-next" onclick="inboxNext()">Next →</button>
+    </div>
+  </div>
+
+  <p class="foot">Mailboxes are destroyed at expiry. No recovery. No logs beyond the active window.</p>
+</div>
+
+<!-- Message reader -->
+<div class="reader-overlay" id="reader-overlay" onclick="if(event.target===this)closeReader()">
+  <div class="reader" role="dialog" aria-modal="true" aria-label="Message">
+    <div class="reader-bar">
+      <h3>Message</h3>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeReader()">Close</button>
+    </div>
+    <div class="reader-body" id="reader-body">
+      <p class="reader-loading">Loading…</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const DOMAIN = {{ domain|tojson }};
+const PAY_ADDRESS = {{ pay_address|tojson }};
+const TIERS = {{ tiers|tojson }};
+</script>
+<script src="/static/js/confirm-modal.js"></script>
+<script src="/static/js/suite-nav.js"></script>
+<script src="/static/js/app.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<title>NESS Pay — Invoice, tips &amp; fundraisers</title>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem("ness_theme") === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (e) {}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="stylesheet" href="/static/css/invoice.css">
+</head>
+<body>
+<div id="toasts"></div>
+
+<div class="wrap">
+  <header class="hero">
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light / dark mode" title="Toggle theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 14.3A8.5 8.5 0 0 1 9.7 3a7 7 0 1 0 11.3 11.3z"/>
+      </svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+    </button>
+    <h1><span class="ness">NESS</span> Pay</h1>
+    <p class="tagline">Invoice · Tips · Fundraisers · Powered by PrivateNess Network</p>
+    <p class="burn-hints">One link · your address · NCH</p>
+    <div class="status-wrap">
+      <div class="status-pill">
+        <span id="inv-dot" class="status-dot online"></span>
+        <span id="inv-status-label">Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="card" id="links-card" style="display:none;">
+    <div class="section-label">My payment links</div>
+    <p class="fineprint" style="margin-bottom:0.75rem;">Your payment links — Unpaid means still waiting for payment. Cancel stops a link; Remove clears it from this list.</p>
+    <ul class="pay-links" id="pay-links"></ul>
+    <div class="actions" style="margin-top:0.85rem;">
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-show-create">New payment link</button>
+    </div>
+  </div>
+
+  <div class="card" id="create-card">
+    <div class="section-label create-label-row">
+      <span>Create a payment link</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="btn-show-links" style="display:none;">My links</button>
+    </div>
+    <p class="fineprint" style="margin-bottom:0.85rem;">
+      One tool, several uses: professional invoice, tip jar, fundraiser, or any NCH request.
+    </p>
+    <div class="purpose-grid" id="purpose-grid" role="listbox" aria-label="Payment purpose">
+      <button type="button" class="purpose-card selected" data-purpose="invoice" role="option" aria-selected="true">
+        <span class="purpose-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 7V3.5L19.5 9H15zM8 12h8v1.5H8V12zm0 3h8v1.5H8V15zm0 3h5v1.5H8V18z"/></svg>
+        </span>
+        <span class="purpose-label">Invoice</span>
+        <span class="purpose-hint">Bill for work</span>
+      </button>
+      <button type="button" class="purpose-card" data-purpose="coffee" role="option" aria-selected="false">
+        <span class="purpose-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 9h11a3 3 0 0 1 0 6h-1"/>
+            <path d="M5 9v7a3 3 0 0 0 3 3h5a3 3 0 0 0 3-3v-1"/>
+            <path d="M8 3c0 1-.5 2-1.5 2S5 4 5 3"/>
+            <path d="M12 3c0 1-.5 2-1.5 2S9 4 9 3"/>
+            <path d="M16 3c0 1-.5 2-1.5 2S13 4 13 3"/>
+          </svg>
+        </span>
+        <span class="purpose-label">Buy me a coffee</span>
+        <span class="purpose-hint">Tips &amp; support</span>
+      </button>
+      <button type="button" class="purpose-card" data-purpose="fund" role="option" aria-selected="false">
+        <span class="purpose-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 2a5 5 0 0 1 5 5c0 2.5-1.8 4.1-3.5 5.3L12 14l-1.5-1.7C8.8 11.1 7 9.5 7 7a5 5 0 0 1 5-5zm0 14c4.4 0 8 1.8 8 4v2H4v-2c0-2.2 3.6-4 8-4z"/></svg>
+        </span>
+        <span class="purpose-label">Fundraiser</span>
+        <span class="purpose-hint">Toward a goal</span>
+      </button>
+      <button type="button" class="purpose-card" data-purpose="other" role="option" aria-selected="false">
+        <span class="purpose-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 2L2 7l10 5 10-5-10-5zm0 7.5L4.5 6 12 2.5 19.5 6 12 9.5zM2 17l10 5 10-5v-2.5l-10 5-10-5V17z"/></svg>
+        </span>
+        <span class="purpose-label">Payment request</span>
+        <span class="purpose-hint">Any NCH link</span>
+      </button>
+    </div>
+    <input type="hidden" id="inv-purpose" value="invoice">
+    <p class="fineprint" id="existing-purpose-warning" style="display:none;margin:0 0 0.85rem;"></p>
+    <label class="field">
+      <span>Title</span>
+      <input type="text" id="inv-title" maxlength="120" placeholder="Design handoff — March" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>Description <em>(optional)</em></span>
+      <textarea id="inv-desc" maxlength="2000" rows="3" placeholder="What this payment covers"></textarea>
+    </label>
+    <label class="field">
+      <span>Amount (NCH)</span>
+      <input type="number" id="inv-amount" min="1" step="1" placeholder="1000" inputmode="numeric">
+    </label>
+    <label class="field">
+      <span>Your NESS receive address</span>
+      <input type="text" id="inv-address" maxlength="96" placeholder="Your NESS address" autocomplete="off" spellcheck="false">
+    </label>
+    <label class="field">
+      <span>Lifetime</span>
+      <select id="inv-ttl">
+        <option value="1">1 hour</option>
+        <option value="6">6 hours</option>
+        <option value="24" selected>24 hours</option>
+        <option value="72">3 days</option>
+        <option value="168">7 days</option>
+      </select>
+    </label>
+    <p class="fineprint">
+      Your payer sends NCH to your address, then confirms with the transaction hash.
+    </p>
+    <div class="actions" style="margin-top:1.15rem;">
+      <button type="button" class="btn" id="btn-create">Create payment link</button>
+    </div>
+  </div>
+
+  <div class="card" id="created-card" style="display:none;">
+    <div class="section-label">Link ready</div>
+    <p class="dl-status" id="created-status">Share this link with your payer</p>
+    <div class="meta-row">
+      <span class="badge" id="created-badge">Unpaid</span>
+      <span class="timer" id="created-timer">—</span>
+    </div>
+    <div class="amount-hero" id="created-amount">—</div>
+    <label class="field">
+      <span>Public link</span>
+      <div class="copy-row">
+        <input type="text" id="created-link" readonly>
+        <button type="button" class="btn btn-sm" id="btn-copy-link">Copy</button>
+      </div>
+    </label>
+    <p class="fineprint" id="created-manage-hint"></p>
+    <div class="actions" style="margin-top:1rem;">
+      <button type="button" class="btn btn-ghost" id="btn-back-list">My links</button>
+      <button type="button" class="btn btn-ghost" id="btn-new-invoice">New link</button>
+      <button type="button" class="btn btn-ghost" id="btn-cancel-invoice">Cancel link</button>
+    </div>
+  </div>
+
+  <div class="card" id="pay-card" style="display:none;">
+    <div class="section-label" id="pay-section-label">Payment</div>
+    <div class="purpose-public" id="pay-purpose-wrap" hidden>
+      <span class="purpose-public-icon" id="pay-purpose-icon"></span>
+      <span class="purpose-public-label" id="pay-purpose-label"></span>
+    </div>
+    <h2 class="inv-title" id="pay-title">—</h2>
+    <p class="inv-desc" id="pay-desc"></p>
+    <div class="meta-row">
+      <span class="badge" id="pay-badge">Unpaid</span>
+      <span class="timer" id="pay-timer">—</span>
+    </div>
+    <div class="amount-hero" id="pay-amount">—</div>
+
+    <div id="pay-unpaid">
+      <label class="field">
+        <span>Send NCH to</span>
+        <div class="copy-row">
+          <input type="text" id="pay-address" readonly>
+          <button type="button" class="btn btn-sm" id="btn-copy-addr">Copy</button>
+        </div>
+      </label>
+      <div class="qr-wrap">
+        <img id="pay-qr" alt="Payment QR" width="160" height="160">
+      </div>
+      <label class="field">
+        <span>Transaction hash</span>
+        <input type="text" id="pay-tx" placeholder="Paste tx hash after payment" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="actions" style="margin-top:1rem;">
+        <button type="button" class="btn" id="btn-verify">Verify payment</button>
+      </div>
+      <p class="fineprint">
+        Send at least the amount shown, then paste your transaction hash to confirm.
+      </p>
+    </div>
+
+    <div id="pay-paid" hidden>
+      <p class="paid-banner">Payment confirmed</p>
+      <p class="fineprint mono" id="pay-txid"></p>
+    </div>
+  </div>
+
+  <p class="foot">Invoice · tips · fundraisers · settled in NCH</p>
+</div>
+
+<script src="/static/js/ness-crypto.js"></script>
+<script src="/static/js/confirm-modal.js"></script>
+<script src="/static/js/suite-nav.js"></script>
+<script src="/static/js/invoice.js"></script>
+</body>
+</html>

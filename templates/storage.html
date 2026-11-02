@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NESS Storage — Private vault</title>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem("ness_theme") === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (e) {}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="stylesheet" href="/static/css/storage.css">
+</head>
+<body>
+<div id="toasts"></div>
+
+<div class="overlay" id="pay-modal" style="display:none;">
+  <div class="modal">
+    <h3 id="pay-title">Activate plan</h3>
+    <p class="sub" id="pay-sub">Send the amount in NCH, then paste the transaction hash.</p>
+    <div class="pay-box">
+      <div class="pay-label">Payment address</div>
+      <div class="pay-addr-row">
+        <div class="pay-addr" id="pay-address">—</div>
+        <button type="button" class="pay-icon-btn" id="btn-copy-pay" title="Copy address" aria-label="Copy payment address">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>
+      <div class="pay-label">Amount</div>
+      <div class="pay-amount" id="pay-amount">—</div>
+    </div>
+    <label class="field" for="tx-hash">Transaction hash</label>
+    <input type="text" id="tx-hash" class="field-input" placeholder="Paste tx hash" autocomplete="off" spellcheck="false">
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="btn-pay-cancel">Cancel</button>
+      <button type="button" class="btn" id="btn-pay-confirm">Verify &amp; store</button>
+    </div>
+  </div>
+</div>
+
+<header class="hero">
+  <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+    <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M21 14.3A8.5 8.5 0 0 1 9.7 3a7 7 0 1 0 11.3 11.3z"/>
+    </svg>
+    <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+  </button>
+  <h1><span class="ness">NESS</span> Storage</h1>
+  <p class="tagline">Private vault · Encrypted on this device · Powered by PrivateNess Network</p>
+  <p class="burn-hints">Encrypted personal vault · Powered by PrivateNess</p>
+  <div class="status-wrap">
+    <div class="status-pill">
+      <span class="status-dot online" id="stg-dot"></span>
+      <span id="stg-status-label">Ready</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="card" id="plans-card">
+    <div class="section-label">Select capacity &amp; pay with NESS Coin-hours (NCH)</div>
+    <div class="plans" id="plans"></div>
+    <div class="actions actions-spread" style="margin-top:1.15rem;">
+      <button type="button" class="btn btn-ghost btn-icon" id="btn-view-library" aria-label="My objects" title="My objects">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+      </button>
+      <button type="button" class="btn" id="btn-continue-plan">Continue with plan</button>
+    </div>
+  </div>
+
+  <div class="card" id="compose-card" style="display:none;">
+    <div class="section-label">Encrypt &amp; store</div>
+    <p class="fineprint" id="compose-plan-hint">—</p>
+    <label class="field" for="obj-label">Label (optional)</label>
+    <input type="text" id="obj-label" class="field-input" maxlength="120" placeholder="e.g. taxes-2026" autocomplete="off">
+    <div class="storage-dropzone" id="dropzone" role="button" tabindex="0" aria-label="Add files">
+      <p>Drop files here or click — encrypted before upload</p>
+      <input type="file" id="file-input" multiple hidden>
+    </div>
+    <ul class="file-list" id="file-list"></ul>
+    <div class="actions actions-spread">
+      <button type="button" class="btn btn-ghost btn-icon" id="btn-back-plans" aria-label="Back to plans" title="Back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 18l-6-6 6-6"/><path d="M9 12h12"/></svg>
+      </button>
+      <button type="button" class="btn" id="btn-publish" disabled>Encrypt &amp; store</button>
+    </div>
+  </div>
+
+  <div class="card" id="library-card" style="display:none;">
+    <div class="section-label">Your private objects</div>
+    <div id="library-empty" class="empty">
+      <div class="empty-icon">∅</div>
+      <p>No objects yet.</p>
+    </div>
+    <ul class="file-list solid" id="library-list"></ul>
+    <div class="actions actions-spread">
+      <button type="button" class="btn btn-ghost btn-icon" id="btn-back-from-lib" aria-label="Back to plans" title="Back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 18l-6-6 6-6"/><path d="M9 12h12"/></svg>
+      </button>
+      <button type="button" class="btn" id="btn-add-from-lib">Store new object</button>
+    </div>
+  </div>
+</main>
+
+<p class="foot">Private by design. For one-time shared drops, use NESS Burn.</p>
+
+<script>
+  const TIERS = {{ tiers | tojson }};
+  const PAY_ADDRESS = {{ pay_address | tojson }};
+  const STORAGE_BACKEND = {{ storage_backend | tojson }};
+</script>
+<script src="/static/js/ness-crypto.js"></script>
+<script src="/static/js/confirm-modal.js"></script>
+<script src="/static/js/suite-nav.js"></script>
+<script src="/static/js/storage.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "plugin": "org.smartide.plugin.editor",
+  "run": "echo 'change command from .si.json file'",
+  "intelligence": {
+    ".py": {
+      "enabled": true,
+      "run": "pylsp"
+    }
+  }
+}
