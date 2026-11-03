@@ -456,7 +456,8 @@ function syncComposeFromPlan() {
   if (!t) return;
   $("#compose-badge").attr("class", "badge " + (t.badge_class || "plan-free")).text(t.label);
   $("#compose-limits").text(
-    t.max_size_mb + " MB · " + t.max_files + " file(s) · " + t.max_downloads + " DL · voice " +
+    (typeof formatQuotaMb === "function" ? formatQuotaMb(t.max_size_mb) : (t.max_size_mb + " MB")) +
+    " · " + planFilesLabel() + " · " + t.max_downloads + " DL · voice " +
     (t.max_audio_seconds >= 60
       ? Math.round(t.max_audio_seconds / 60) + " min"
       : t.max_audio_seconds + "s")
@@ -640,15 +641,25 @@ function countPayloadItems() {
 }
 
 function planCapacity() {
+  // max_files === 0 means unlimited (aligned with burn.py). Never treat 0 as 1.
   const t = TIERS[selectedPlanId] || {};
-  return Math.max(1, parseInt(t.max_files || 1, 10));
+  const n = parseInt(t.max_files, 10);
+  if (!isFinite(n) || n <= 0) return Number.MAX_SAFE_INTEGER;
+  return n;
+}
+
+function planFilesLabel() {
+  const t = TIERS[selectedPlanId] || {};
+  const n = parseInt(t.max_files, 10);
+  if (!isFinite(n) || n <= 0) return "Unlimited files";
+  return n + " file" + (n === 1 ? "" : "s");
 }
 
 function assertCanAddFile() {
   // Adding one more binary file
   const next = selectedFiles.length + 1 + (hasNoteContent() ? 1 : 0);
   if (next > planCapacity()) {
-    toast("This plan allows " + planCapacity() + " item(s). Remove something or upgrade.", "warn");
+    toast(planCapacity() >= 1e9 ? "Something went wrong adding this file." : ("This plan allows " + planCapacity() + " item(s). Remove something or upgrade."), "warn");
     return false;
   }
   return true;
