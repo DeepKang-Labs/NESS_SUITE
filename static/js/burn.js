@@ -451,6 +451,113 @@ function selectPlan(id) {
   }
 }
 
+function setPasswordInputVisible(input, visible) {
+  if (!input) return false;
+  var want = visible ? "text" : "password";
+  if ((input.getAttribute("type") || input.type || "").toLowerCase() === want) {
+    return true;
+  }
+  // Primary path
+  try {
+    input.type = want;
+  } catch (err) { /* some legacy engines */ }
+  if ((input.type || "").toLowerCase() === want) {
+    return true;
+  }
+  // Fallback: replace node (rare WebViews that block type mutation)
+  try {
+    var clone = input.cloneNode(false);
+    clone.setAttribute("type", want);
+    clone.value = input.value;
+    clone.className = input.className;
+    clone.id = input.id;
+    clone.name = input.name;
+    if (input.placeholder) clone.placeholder = input.placeholder;
+    if (input.autocomplete) clone.autocomplete = input.autocomplete;
+    clone.required = input.required;
+    input.parentNode.replaceChild(clone, input);
+    return true;
+  } catch (err2) {
+    return false;
+  }
+}
+
+function syncPwToggleUi(btn, revealed) {
+  if (!btn) return;
+  btn.classList.toggle("is-revealed", !!revealed);
+  btn.setAttribute("aria-pressed", revealed ? "true" : "false");
+  btn.setAttribute("aria-label", revealed ? "Hide passphrase" : "Show passphrase");
+  btn.setAttribute("title", revealed ? "Hide passphrase" : "Show passphrase");
+}
+
+function togglePassphraseForButton(btn) {
+  if (!btn) return;
+  var id = btn.getAttribute("data-target");
+  var inp = id ? document.getElementById(id) : null;
+  if (!inp) return;
+  var cur = (inp.getAttribute("type") || inp.type || "password").toLowerCase();
+  var reveal = cur === "password";
+  if (!setPasswordInputVisible(inp, reveal)) {
+    return;
+  }
+  // Re-query in case the node was replaced
+  inp = document.getElementById(id) || inp;
+  var now = (inp.getAttribute("type") || inp.type || "").toLowerCase();
+  syncPwToggleUi(btn, now === "text");
+  try { inp.focus({ preventScroll: true }); } catch (e) { try { inp.focus(); } catch (e2) {} }
+}
+
+function bindPassphraseToggles() {
+  if (window.__nessPwToggleBound) return;
+  window.__nessPwToggleBound = true;
+
+  function onActivate(e) {
+    var btn = e.target && e.target.closest ? e.target.closest("button.pw-toggle") : null;
+    if (!btn || !document.body.contains(btn)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+    togglePassphraseForButton(btn);
+  }
+
+  // Bubble + capture so neither overlay nor stopPropagation on parents can starve us
+  document.addEventListener("click", onActivate, true);
+  document.addEventListener("click", onActivate, false);
+  // Keyboard: Enter / Space on focused toggle
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var btn = e.target && e.target.closest ? e.target.closest("button.pw-toggle") : null;
+    if (!btn) return;
+    e.preventDefault();
+    togglePassphraseForButton(btn);
+  }, true);
+}
+
+function setPassphraseFieldVisible(on) {
+  var el = document.getElementById("opt-password-wrap");
+  if (!el) return;
+  if (on) {
+    el.removeAttribute("hidden");
+    el.hidden = false;
+    el.style.display = "flex";
+    bindPassphraseToggles();
+    var btn = document.getElementById("btn-toggle-opt-password");
+    var inp = document.getElementById("opt-password");
+    if (inp) setPasswordInputVisible(inp, false);
+    syncPwToggleUi(btn, false);
+  } else {
+    el.setAttribute("hidden", "");
+    el.hidden = true;
+    el.style.display = "none";
+    var inp2 = document.getElementById("opt-password");
+    if (inp2) {
+      setPasswordInputVisible(inp2, false);
+      inp2.value = "";
+    }
+    syncPwToggleUi(document.getElementById("btn-toggle-opt-password"), false);
+  }
+}
+
 function syncComposeFromPlan() {
   const t = TIERS[selectedPlanId];
   if (!t) return;
@@ -467,12 +574,8 @@ function syncComposeFromPlan() {
   } else {
     $("#opt-burn-after").prop("disabled", false);
   }
-  if (t.password) {
-    $("#opt-password-wrap").prop("hidden", false).show();
-  } else {
-    $("#opt-password-wrap").prop("hidden", true).hide();
-    $("#opt-password").val("");
-  }
+  // Day / Week / Month only — must remove [hidden] (CSS uses !important)
+  setPassphraseFieldVisible(!!t.password);
   const sec = t.max_audio_seconds || 60;
   $("#audio-limit-hint").text("Up to " + (sec >= 60 ? Math.round(sec / 60) + " min" : sec + "s") + " on " + t.label);
   if (t.voice_anonymize === false) {
@@ -1422,9 +1525,22 @@ function loadDownload(token) {
       timerInterval = setInterval(tick, 1000);
 
       // Passphrase UI only when author set one on a plan that supports it
-      $("#dl-password-wrap").prop("hidden", true).hide();
+      var dlPw = document.getElementById("dl-password-wrap");
+      if (dlPw) {
+        dlPw.setAttribute("hidden", "");
+        dlPw.hidden = true;
+        dlPw.style.display = "none";
+      }
       if (data.password_required === true) {
-        $("#dl-password-wrap").prop("hidden", false).show();
+        if (dlPw) {
+          dlPw.removeAttribute("hidden");
+          dlPw.hidden = false;
+          dlPw.style.display = "flex";
+        }
+        bindPassphraseToggles();
+        var dlInp = document.getElementById("dl-password");
+        if (dlInp) setPasswordInputVisible(dlInp, false);
+        syncPwToggleUi(document.getElementById("btn-toggle-dl-password"), false);
         $("#dl-files").empty();
         $("#dl-preview").prop("hidden", true).empty();
         $("#btn-dl-unlock").off("click").on("click", function () {
@@ -1518,21 +1634,66 @@ function renderDropAccess(token, data, viewToken) {
   $fl.find("button.dl").on("click", function () {
     const idx = $(this).data("idx");
     const vt = viewToken || "";
+    const $btn = $(this);
+    $btn.prop("disabled", true);
+    const url = "/api/burn/" + encodeURIComponent(token) + "/file/" + idx;
+    const opts = { method: vt ? "POST" : "GET", headers: ajaxHeaders(), credentials: "same-origin" };
     if (vt) {
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "/api/burn/" + encodeURIComponent(token) + "/file/" + idx;
-      const inp = document.createElement("input");
-      inp.type = "hidden";
-      inp.name = "view_token";
-      inp.value = vt;
-      form.appendChild(inp);
-      document.body.appendChild(form);
-      form.submit();
-      form.remove();
-    } else {
-      window.location.href = fileUrl(token, idx, "", false);
+      const fd = new FormData();
+      fd.append("view_token", vt);
+      opts.body = fd;
     }
+    fetch(url, opts)
+      .then(function (res) {
+        const ct = (res.headers.get("content-type") || "").toLowerCase();
+        if (!res.ok) {
+          if (ct.indexOf("application/json") !== -1) {
+            return res.json().then(function (body) {
+              throw new Error((body && body.error) || ("Download failed (" + res.status + ")"));
+            });
+          }
+          throw new Error("Download failed (" + res.status + ")");
+        }
+        var fname = "download";
+        try {
+          var meta = (window.__burnDlMeta && window.__burnDlMeta.files && window.__burnDlMeta.files[idx]) || {};
+          fname = meta.filename || fname;
+        } catch (e) {}
+        return res.blob().then(function (blob) {
+          var a = document.createElement("a");
+          var obj = URL.createObjectURL(blob);
+          a.href = obj;
+          a.download = fname;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function () { URL.revokeObjectURL(obj); }, 2000);
+          toast("Download started", "ok");
+          // Refresh remaining slots without full page navigation
+          $.ajax({ url: "/api/burn/" + encodeURIComponent(token), headers: ajaxHeaders() })
+            .done(function (data) {
+              if (!data || !data.success) {
+                if (data && (data.status === "burned" || (data.error || "").toLowerCase().indexOf("expired") !== -1)) {
+                  $("#dl-status").text(data.error || "This drop has expired and burned");
+                  $("#dl-files").empty();
+                  $("#dl-preview").prop("hidden", true).empty();
+                }
+                return;
+              }
+              window.__burnDlMeta = data;
+              var bits = [];
+              if (data.downloads_remaining != null) bits.push(data.downloads_remaining + " download(s) left");
+              bits.push(formatBytes(data.total_bytes));
+              $("#dl-status").text(bits.join(" · "));
+            });
+        });
+      })
+      .catch(function (err) {
+        toast((err && err.message) || "Download failed", "err");
+      })
+      .finally(function () {
+        $btn.prop("disabled", false);
+      });
   });
 
   // Author enabled in-browser view → show all readable content automatically
@@ -1681,6 +1842,8 @@ function openAuthorPreview() {
 }
 
 $(function () {
+  bindPassphraseToggles();
+
   initThemeToggle();
 
   // Restore published drop or in-progress draft after reload

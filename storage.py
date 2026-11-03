@@ -255,7 +255,13 @@ def get_backend():
 def cleanup_expired_storage():
     try:
         try:
-            print(f"[STORAGE] disk usage { _disk_usage_mb():.1f} MB / {STORAGE_HARD_DISK_CAP_MB} MB")
+            # Log at most once per 15 minutes (cleanup runs often)
+            _du = _disk_usage_mb()
+            _now = time.time()
+            _last = getattr(cleanup_expired_storage, "_last_log_at", 0.0)
+            if _now - _last >= 900:
+                print(f"[STORAGE] disk usage {_du:.1f} MB / {STORAGE_HARD_DISK_CAP_MB} MB")
+                cleanup_expired_storage._last_log_at = _now
         except Exception:
             pass
         conn = sqlite3.connect(DB_PATH)

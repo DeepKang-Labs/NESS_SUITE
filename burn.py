@@ -134,6 +134,7 @@ def _issue_view_session(public_token: str) -> str:
         _VIEW_SESSIONS[tok] = {
             "drop": public_token,
             "exp": time.time() + _VIEW_SESSION_TTL,
+            "dl_charged": False,
         }
     return tok
 
@@ -153,6 +154,54 @@ def _view_session_ok(view_token: str, public_token: str) -> bool:
         # Sliding window — extend on successful use
         rec["exp"] = time.time() + _VIEW_SESSION_TTL
         return True
+
+
+def _charge_download_once(db, row, view_token: str, public_token: str):
+    """Charge max_downloads at most once per unlock session (or once/2min passwordless).
+
+    Multi-file drops must not burn after file 2 of 3 when the plan still has
+    downloads remaining. Returns (new_count, should_burn).
+    """
+    charge = True
+    if view_token:
+        with _VIEW_SESSIONS_LOCK:
+            rec = _VIEW_SESSIONS.get(view_token)
+            if rec and rec.get("drop") == public_token:
+                if rec.get("dl_charged"):
+                    charge = False
+                else:
+                    rec["dl_charged"] = True
+    else:
+        # Passwordless: coalesce bursts from same client key
+        try:
+            from flask import request as fr
+            ip = (getattr(fr, "remote_addr", None) or "unknown")
+        except Exception:
+            ip = "unknown"
+        key = f"anon-dl:{public_token}:{ip}"
+        now = time.time()
+        with _VIEW_SESSIONS_LOCK:
+            rec = _VIEW_SESSIONS.get(key)
+            if rec and rec.get("exp", 0) > now and rec.get("dl_charged"):
+                charge = False
+            else:
+                _VIEW_SESSIONS[key] = {
+                    "drop": public_token,
+                    "exp": now + 120,
+                    "dl_charged": True,
+                }
+
+    if not charge:
+        return int(row["download_count"]), False
+
+    new_count = int(row["download_count"]) + 1
+    db.execute(
+        "UPDATE burn_drops SET download_count = ? WHERE id = ?",
+        (new_count, row["id"]),
+    )
+    db.commit()
+    should_burn = bool(row["burn_after"]) or new_count >= int(row["max_downloads"])
+    return new_count, should_burn
 
 
 
@@ -894,10 +943,8 @@ def _mount_routes(app, deps):
             "download_count": row["download_count"],
             "downloads_remaining": max(0, row["max_downloads"] - row["download_count"]),
             "burn_after": bool(row["burn_after"]),
-            "password_required": (
-                bool(BURN_TIERS.get(row["plan"], {}).get("password"))
-                and _row_has_password(row)
-            ),
+            # Source of truth is the stored hash (not current tier flag)
+            "password_required": _row_has_password(row),
             "allow_view": allow_view,
             "allow_download": allow_download,
             "files": [
@@ -1040,18 +1087,12 @@ def _mount_routes(app, deps):
             return jsonify({"success": False, "error": "File missing"}), 404
 
         # Count only real downloads (attachment). Inline view does not consume quota.
+        # One charge per unlock session so multi-file packages don't burn mid-pack.
         should_burn = False
         if not inline:
-            new_count = int(row["download_count"]) + 1
-            db.execute(
-                "UPDATE burn_drops SET download_count = ? WHERE id = ?",
-                (new_count, row["id"]),
-            )
-            db.commit()
-            should_burn = bool(row["burn_after"]) or new_count >= int(row["max_downloads"])
+            _new_count, should_burn = _charge_download_once(db, row, view_token, token)
 
         data = path.read_bytes()
-        # Burn after bytes are read into memory (safe for MVP sizes)
         if should_burn:
             try:
                 _destroy_drop(db, row)
