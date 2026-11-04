@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NESS Wormhole · Offline sealed pair</title>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem("ness_theme") === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (e) {}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="stylesheet" href="/static/css/wormhole.css">
+</head>
+<body>
+<div id="toasts"></div>
+
+<div class="wrap wormhole-page">
+  <header class="hero">
+<h1><span class="ness">NESS</span> Wormhole · Offline</h1>
+    <p class="tagline">Sealed pair · AES-256-GCM · two carriers · Powered by PrivateNess Network</p>
+    <div class="status-wrap">
+    <button type="button" class="btn-back" id="btn-suite-back" aria-label="Go back" title="Back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/><path d="M9 12h12"/></svg>
+    </button>
+      <div class="status-pill">
+        <span class="status-dot online" id="wh-dot"></span>
+        <span id="wh-status-label">Fully offline · no network</span>
+      </div>
+    </div>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light / dark mode" title="Toggle theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 14.3A8.5 8.5 0 0 1 9.7 3a7 7 0 1 0 11.3 11.3z"/>
+      </svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+    </button>
+  </header>
+<div id="fatal" class="fatal"></div>
+
+  <div class="card">
+    <h2>What this is</h2>
+    <p style="margin-top:0">Onboarding material is sealed under a 256-bit key and split across two physical
+    carriers: <strong>QR&nbsp;A</strong> holds the ciphertext and travels in the open; <strong>QR&nbsp;B</strong>
+    holds the key and travels sealed — under a scratch layer, inside the packaging, on a separate card, or in
+    a second hand. The <strong>triple</strong> (<code>NNN-word-word</code>, magic-wormhole shape, PGP word list)
+    is printed on both halves and spoken aloud. It is derived from the key, so it is a pairing fingerprint,
+    not a secret: it lets a human confirm that the two halves belong to the same object before opening.</p>
+    <p>The triple is bound into the AEAD associated data, so a mismatched pairing fails the tag check
+    cryptographically rather than only visually.</p>
+    <div class="note">
+      <strong>Boundary.</strong> This proves that whoever opens the bundle held both carriers, and that the
+      bundle was not altered. It proves nothing about who issued it, whether a key is anchored on-chain, or
+      whether an authority is trustworthy. Those are verifier duties outside this page — anchor them against
+      <code>dpo:PrivateNESS.Network</code> through your own node.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Seal</h2>
+    <label>Bundle
+      <span class="hint">Anything the receiving side needs. The default is a <code>worm:node:1.0</code>
+      skeleton, which the WORM writer accepts unchanged. Max ~2.9 KB for a single QR at ECC&nbsp;L.</span>
+      <textarea id="plain" rows="14"></textarea>
+    </label>
+    <label>Label (printed under both codes, not secret)
+      <input id="label" type="text" value="PrivateNESS node onboarding">
+    </label>
+    <label><input type="checkbox" id="emcssh" style="width:auto;margin-right:.5em">
+      Enforce EmerSSH on the receiving node
+      <span class="hint">The node stops trusting its own <code>authorized_keys</code> and takes its key list
+      from the chain instead. Adds an <code>&lt;access&gt;</code> block to the bundle and a setup file
+      alongside it.</span></label>
+    <label id="emcssh-ref-row" style="display:none">Who may log in
+      <span class="hint">EmerSSH list syntax: references and literal keys separated by <code>|</code>.
+      <code>@ops</code> resolves to the NVS record <code>ssh:ops</code>, which may itself be a list —
+      that is how a group works. Depth limit 30.</span>
+      <input id="emcssh-ref" type="text" value="@privateness-ops"></label>
+    <div class="noprint">
+      <button id="seal-btn">Seal</button>
+      <button id="print-btn" class="secondary" disabled>Print pair</button>
+    </div>
+    <div id="seal-out" style="display:none">
+      <div class="triple" id="seal-triple"></div>
+      <div class="meta" id="seal-meta"></div>
+      <div class="qrrow">
+        <div class="qrbox">
+          <h3>QR A · sealed bundle</h3>
+          <span class="role">travels in the open</span>
+          <div id="qr-a"></div>
+          <div class="meta" id="meta-a"></div>
+          <div class="noprint"><button class="secondary" data-dl="a">Download SVG</button></div>
+        </div>
+        <div class="qrbox">
+          <h3>QR B · unlock key</h3>
+          <span class="role">travels sealed · destroy after use</span>
+          <div id="qr-b"></div>
+          <div class="meta" id="meta-b"></div>
+          <div class="noprint"><button class="secondary" data-dl="b">Download SVG</button></div>
+        </div>
+      </div>
+      <div class="noprint" id="emcssh-out" style="display:none">
+        <button class="secondary" id="dl-emcssh">Save the EmerSSH setup</button>
+      </div>
+      <label class="noprint">Carrier strings
+        <span class="hint">Same content as the codes, for transcription or a second channel.</span>
+        <textarea id="seal-text" rows="6" readonly></textarea>
+      </label>
+    </div>
+  </div>
+
+  <div class="card noprint">
+    <h2>Open one</h2>
+    <div class="row">
+      <div class="rowlabel"><strong>The open code</strong><span class="hint">the one printed outside</span></div>
+      <span class="chip" id="chip-a">waiting</span>
+      <button class="scan" data-scan="a">Scan</button>
+    </div>
+    <div class="row">
+      <div class="rowlabel"><strong>The sealed code</strong><span class="hint">under the scratch layer</span></div>
+      <span class="chip" id="chip-b">waiting</span>
+      <button class="scan" data-scan="b">Scan</button>
+    </div>
+    <video id="cam" playsinline muted style="display:none"></video>
+    <label>The words you were told
+      <span class="hint">Optional, and worth doing. Three words, spoken by whoever handed it over.</span>
+      <input id="in-triple" type="text" placeholder="278-Neptune-backwater">
+    </label>
+    <button id="open-btn">Open it</button>
+    <div class="verdict" id="verdict"></div>
+    <div id="open-out" style="display:none">
+      <label>What was inside
+        <textarea id="plain-out" rows="12" readonly></textarea>
+      </label>
+      <button class="secondary" id="dl-bundle">Save it</button>
+    </div>
+    <details id="checks">
+      <summary>Show the checks</summary>
+      <table class="gates" id="gate-table" style="display:none">
+        <thead><tr><th>Gate</th><th>Check</th><th>Result</th></tr></thead>
+        <tbody id="gate-body"></tbody>
+      </table>
+      <label>The open code, as text
+        <textarea id="in-a" rows="4" placeholder="NWH1:A:..."></textarea>
+      </label>
+      <label>The sealed code, as text
+        <textarea id="in-b" rows="2" placeholder="NWH1:B:..."></textarea>
+      </label>
+    </details>
+  </div>
+
+  <div class="foot">
+    NWH1 · AES-256-GCM over HKDF-SHA256(K, salt, "ness-wormhole-1/seal") · triple = HKDF(K, salt,
+    "ness-wormhole-1/triple") · QR encoder verified against an independent implementation for all
+    160 version/ECC combinations.
+  </div>
+</div>
+
+<script src="/static/js/suite-nav.js"></script>
+<script src="/static/js/confirm-modal.js"></script>
+<script src="/static/js/wormhole-qr.js"></script>
+<script src="/static/js/wormhole-core.js"></script>
+<script src="/static/js/wormhole-offline.js"></script>
+<script src="/static/js/wormhole-suite.js"></script>
+</body>
+</html>

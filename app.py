@@ -2088,6 +2088,30 @@ storage_product.register(app, {
 
 
 
+
+# ==========================================================================
+# 7b. WORMHOLE (client-side tools — no payment rail)
+# ==========================================================================
+
+@app.route("/wormhole")
+def wormhole_hub():
+    if HAS_FLASK:
+        return render_template("wormhole.html")
+    return ("Wormhole requires Flask templates", 500)
+
+@app.route("/wormhole/dpo")
+def wormhole_dpo():
+    if HAS_FLASK:
+        return render_template("wormhole_dpo.html")
+    return ("Wormhole DPO requires Flask templates", 500)
+
+@app.route("/wormhole/offline")
+def wormhole_offline():
+    if HAS_FLASK:
+        return render_template("wormhole_offline.html")
+    return ("Wormhole offline requires Flask templates", 500)
+
+
 # ==========================================================================
 # 8. ENTRY POINT
 # ==========================================================================

@@ -16,6 +16,7 @@
         '<a class="suite-link" data-suite="burn" href="/burn">Burn</a>' +
         '<a class="suite-link" data-suite="invoice" href="/invoice">Pay</a>' +
         '<a class="suite-link" data-suite="storage" href="/storage">Storage</a>' +
+        '<a class="suite-link" data-suite="wormhole" href="/wormhole">Wormhole</a>' +
         '<p class="suite-drawer-foot">PrivateNess Network</p>' +
       "</nav>";
     document.body.appendChild(root);
@@ -25,6 +26,7 @@
     if (path.indexOf("/burn") === 0) active = "burn";
     else if (path.indexOf("/invoice") === 0) active = "invoice";
     else if (path.indexOf("/storage") === 0) active = "storage";
+    else if (path.indexOf("/wormhole") === 0) active = "wormhole";
     root.querySelectorAll(".suite-link").forEach(function (a) {
       const id = a.getAttribute("data-suite");
       if (id === active) {

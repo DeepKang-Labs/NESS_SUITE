@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NESS Wormhole · EmerDPO possession</title>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem("ness_theme") === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (e) {}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="stylesheet" href="/static/css/wormhole.css">
+</head>
+<body>
+<div id="toasts"></div>
+
+<div class="wrap wormhole-page">
+  <header class="hero">
+<h1><span class="ness">NESS</span> Wormhole · DPO</h1>
+    <p class="tagline">EmerDPO possession · QR pairs · command text only · Powered by PrivateNess Network</p>
+    <div class="status-wrap">
+    <button type="button" class="btn-back" id="btn-suite-back" aria-label="Go back" title="Back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/><path d="M9 12h12"/></svg>
+    </button>
+      <div class="status-pill">
+        <span class="status-dot online" id="wh-dot"></span>
+        <span id="wh-status-label">Offline tool · no chain broadcast</span>
+      </div>
+    </div>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light / dark mode" title="Toggle theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 14.3A8.5 8.5 0 0 1 9.7 3a7 7 0 1 0 11.3 11.3z"/>
+      </svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+      </svg>
+    </button>
+  </header>
+<div id="fatal" class="fatal"></div>
+
+  <div class="card">
+    <h2>The shape of it</h2>
+    <p style="margin-top:0">EmerDPO items live at <code>dpo:&lt;vendor&gt;:&lt;serial&gt;:&lt;n&gt;</code>. The
+    record carries <code>OTP=</code>, which is <code>sha256(md5(secret + salt))</code> — the hash is public, the
+    secret is not. Two codes go on the label: <strong>QR&nbsp;1</strong> in the open, for anyone to check
+    authenticity, and <strong>QR&nbsp;2</strong> under the scratch layer or inside the packaging, carrying the
+    secret that claims the object. The <strong>triple</strong> is derived from the secret and printed beside
+    QR&nbsp;2 so a buyer can read a pairing aloud without reading the secret aloud.</p>
+    <div class="note">
+      <strong>Standing rule.</strong> Nothing here touches a wallet or a chain. It emits command text for you
+      to read, verify and run yourself. <code>name_new</code> and <code>name_update</code> are irreversible;
+      verify content and dependencies before either. And note: <em>VERIFICATION: FAILED</em> on a
+      <code>dpo:</code> item is the correct outcome once possession has been taken — the unit is sold, not broken.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Issue a lot</h2>
+    <div class="grid">
+      <label>Vendor <span class="hint">the <code>dpo:&lt;vendor&gt;</code> master record</span>
+        <input id="vendor" value="PrivateNESS.Network"></label>
+      <label>Item name<input id="item" value="Chaos Key"></label>
+      <label>Serial prefix<input id="prefix" value="CK-"></label>
+      <label>Lease days <span class="hint">passed to name_new</span><input id="days" value="3650"></label>
+      <label>First serial<input id="first" value="1001"></label>
+      <label>Last serial<input id="last" value="1010"></label>
+      <label>DPO web app base URL<input id="baseurl" value="http://emcdpo.info/dpo"></label>
+      <label>Owner <span class="hint">the <code>Owner=</code> field at issue time</span>
+        <input id="owner" value="PrivateNESS.Network"></label>
+      <label>Sealed code rail
+        <span class="hint">what QR&nbsp;2 points at</span>
+        <select id="rail">
+          <option value="claim">claim page · what a buyer should actually meet</option>
+          <option value="nvs">raw gateway bookmark · the form, prefilled</option>
+          <option value="emcdpo">emcdpo private URL · reference web app</option>
+        </select></label>
+      <label>Claim page <span class="hint">where you host <code>ness-claim.html</code></span>
+        <input id="claimpage" value="https://nvs.ness.cx/mine"></label>
+      <label>NVS gateway<input id="gateway" value="https://nvs.ness.cx/"></label>
+    </div>
+    <label style="margin-top:1em"><input type="checkbox" id="addclaim" checked style="width:auto;margin-right:.5em">
+      Add a salt-free <code>CLAIM=sha256(secret)</code> line
+      <span class="hint">The legacy <code>OTP=</code> can only be verified by whoever holds the vendor salt.
+      <code>CLAIM=</code> lets the gateway, ns74, or any stranger check a secret against the record with nothing shared.</span></label>
+    <label>Vendor salt
+      <span class="hint">Per-vendor, secret, and required forever: without it no secret can be checked against
+      any OTP. Generated from crypto.getRandomValues; replace it with your existing salt if this vendor already has one.</span>
+      <input id="salt"></label>
+    <label><input type="checkbox" id="sshreq" style="width:auto;margin-right:.5em">
+      Require an EmerSSH identity to claim
+      <span class="hint">Writes <code>SSHPOLICY=required</code> into the record. A claim then has to name an
+      EmerSSH reference, and it is written as <code>SSH=@name</code> — so the object's access list is the
+      owner's chain identity, not a key sitting on a disk. <code>SSHPOLICY</code> and <code>SSH</code> are
+      ours, not part of the emcdpo record vocabulary.</span></label>
+    <label>Description<input id="desc" value="Epoxy-encapsulated NTAG213 entropy artifact"></label>
+    <label>Photo URL <span class="hint">optional; omitted from the record when empty</span>
+      <input id="photo" value=""></label>
+    <button id="issue-btn">Generate lot</button>
+    <button id="regen-salt" class="secondary">New salt</button>
+    <div id="issue-out" style="display:none">
+      <div class="meta" id="issue-meta"></div>
+      <div class="triple" id="issue-triple"></div>
+      <div class="qrrow">
+        <div class="qrbox">
+          <h3>QR 1 · open</h3><span class="role">check authenticity</span>
+          <div id="qr1"></div><div class="meta" id="meta1"></div>
+        </div>
+        <div class="qrbox">
+          <h3>QR 2 · sealed</h3><span class="role" id="qr2role">claims the object</span>
+          <div id="qr2"></div><div class="meta" id="meta2"></div>
+        </div>
+      </div>
+      <label>First record, as it will read
+        <textarea id="rec-preview" rows="12" readonly></textarea>
+      </label>
+      <div class="note" id="rail-note"></div>
+      <button class="secondary" data-dl="private">private.csv</button>
+      <button class="secondary" data-dl="public">public.csv</button>
+      <button class="secondary" data-dl="print">print.csv</button>
+      <button class="secondary" data-dl="commands">commands.txt</button>
+      <button class="secondary" data-dl="patch">gateway-prefill.txt</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Take possession</h2>
+    <label>Scanned QR 2, or the secret alone
+      <span class="hint">Accepts the private URL <code>.../key/&lt;serial&gt;?otp=&lt;secret&gt;</code> or a bare secret.</span>
+      <input id="claim-in" placeholder="http://emcdpo.info/dpo/key/CK-1001?otp=..."></label>
+    <div class="grid">
+      <label>Vendor<input id="c-vendor" value="PrivateNESS.Network"></label>
+      <label>Serial <span class="hint">filled from the URL when present</span><input id="c-serial"></label>
+      <label>Vendor salt<input id="c-salt"></label>
+      <label>Current index n <span class="hint">the trailing number of the record you hold</span>
+        <input id="c-index" value="0"></label>
+    </div>
+    <label>OTP as read from <code>name_show</code>
+      <span class="hint">Optional. Without it the recomputed OTP is checked against nothing, and this page will
+      say so rather than show you a green badge.</span>
+      <input id="c-otp"></label>
+    <label>Current record value from <code>name_show</code>
+      <span class="hint">Required to build a transfer command. The new value is your value with
+      <code>Owner=</code> replaced and <code>Updated=</code> incremented — nothing is invented.</span>
+      <textarea id="c-value" rows="6" placeholder="Item=...&#10;OTP=...&#10;Owner=...&#10;Updated=1"></textarea></label>
+    <label>New owner <span class="hint">name for the <code>Owner=</code> field</span><input id="c-newowner"></label>
+    <label>New owner Emercoin address
+      <span class="hint">The address the record is reassigned to. Yours, if you are the buyer. After this, control is theirs.</span>
+      <input id="c-address" placeholder="E..."></label>
+    <label>New owner EmerSSH reference
+      <span class="hint">Their <code>ssh:&lt;name&gt;</code> record, written as <code>@name</code>. Required
+      when the record carries <code>SSHPOLICY=required</code>.</span>
+      <input id="c-ssh" placeholder="@name"></label>
+    <label>Record is currently held by the gateway wallet
+      <span class="hint">Only the current owner can sign a <code>name_update</code>. The gateway can hand the
+      record over only if it holds it — i.e. the item was issued through nvs.ness.cx with the address field left blank.</span>
+      <select id="c-custody">
+        <option value="unknown">not confirmed</option>
+        <option value="yes">confirmed: name_show address is the gateway's</option>
+        <option value="no">no: the vendor holds it in their own wallet</option>
+      </select></label>
+    <button id="claim-btn">Check and build</button>
+    <table class="gates" id="c-gates" style="display:none">
+      <thead><tr><th>Gate</th><th>Check</th><th>Result</th></tr></thead>
+      <tbody id="c-body"></tbody>
+    </table>
+    <div id="claim-out" style="display:none">
+      <label>Claim through the DPO web app
+        <span class="hint">What the reference implementation does: the app verifies the secret and records the claim.</span>
+        <textarea id="claim-url" rows="2" readonly></textarea></label>
+      <label>Claim through the NVS gateway
+        <span class="hint">Opens the gateway with the record prefilled. You supply your own address, pay the
+        slot in EMC, NESS or NCH, and the gateway performs the <code>name_update</code> that assigns the
+        record to you.</span>
+        <textarea id="claim-bookmark" rows="4" readonly></textarea></label>
+      <label>Or transfer the record yourself · irreversible
+        <span class="hint">Reassigns the NVS record to the buyer's address. Read every character before running it.</span>
+        <textarea id="claim-cmd" rows="8" readonly></textarea></label>
+    </div>
+  </div>
+
+  <div class="foot">
+    Record shape and the <code>sha256(md5(secret+salt))</code> OTP chain follow the EmerDPO reference generator
+    and EmerAPI KeyKeeper. Secrets are 80 bits from crypto.getRandomValues, not an 8-character password.
+  </div>
+</div>
+
+<script src="/static/js/suite-nav.js"></script>
+<script src="/static/js/confirm-modal.js"></script>
+<script src="/static/js/wormhole-qr.js"></script>
+<script src="/static/js/wormhole-core.js"></script>
+<script src="/static/js/wormhole-dpo.js"></script>
+<script src="/static/js/wormhole-suite.js"></script>
+</body>
+</html>
