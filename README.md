@@ -1,5 +1,22 @@
 # NESS Suite
 
+## NESS Burn contribution
+
+This branch proposes a focused change to single-use attachment downloads. If two requests reach the same drop at the same time, one SQLite update claims the download before the response is sent. The regression tests also cover retrying after a failed file read and cleaning up after a failed deletion.
+
+[Upstream baseline `863e296`](https://github.com/Frahane/NESS_SUITE/commit/863e296604d3b95654b4c8bdf7af2bca4093b78b) · [Compare with the baseline](https://github.com/DeepKang-Labs/NESS_SUITE/compare/863e296604d3b95654b4c8bdf7af2bca4093b78b...contribution%2Fburn-single-download) · [Code](burn.py) · [Regression tests](tests/test_burn_single_download.py)
+
+From the repository root, run the tests in a Python environment with the project dependencies installed.
+
+```sh
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -p test_burn_single_download.py -v
+```
+
+The three tests use a temporary SQLite database and a synthetic file. The project documentation follows below.
+
+---
+
 **PrivateNess Network · NESS Coin-Hours (NCH) · TempMail · Burn · Pay · Storage**
 
 Single-process Python application that serves four related products on one payment rail, one SQLite database, and one design system:
