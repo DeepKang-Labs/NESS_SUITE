@@ -411,8 +411,9 @@ def _destroy_drop(db, row):
     if d.exists():
         shutil.rmtree(d, ignore_errors=True)
     db.execute(
-        "UPDATE burn_drops SET status = 'burned', files_json = '[]' WHERE id = ?",
-        (row["id"],),
+        """UPDATE burn_drops SET status = 'burned',
+           files_json = CASE WHEN ? THEN files_json ELSE '[]' END WHERE id = ?""",
+        (d.exists(), row["id"]),
     )
     db.commit()
 
@@ -432,17 +433,19 @@ def cleanup_burn_expired():
         conn.execute("PRAGMA busy_timeout=5000;")
         now = datetime.now(timezone.utc).isoformat()
         rows = conn.execute(
-            "SELECT * FROM burn_drops WHERE status = 'active' AND expires_at < ?",
+            """SELECT * FROM burn_drops WHERE (status = 'active' AND expires_at < ?)
+               OR (status IN ('burned', 'expired') AND files_json <> '[]')""",
             (now,),
         ).fetchall()
         for row in rows:
             _destroy_drop(conn, row)
-            conn.execute(
-                "UPDATE burn_drops SET status = 'expired' WHERE id = ?", (row["id"],)
-            )
+            if row["status"] != "burned":
+                conn.execute(
+                    "UPDATE burn_drops SET status = 'expired' WHERE id = ?", (row["id"],)
+                )
         conn.execute(
             "DELETE FROM burn_drops WHERE status IN ('burned','expired') "
-            "AND expires_at < ?",
+            "AND files_json = '[]' AND expires_at < ?",
             ((datetime.now(timezone.utc) - timedelta(days=7)).isoformat(),),
         )
         conn.commit()
@@ -1085,14 +1088,31 @@ def _mount_routes(app, deps):
         path = _drop_dir(token) / meta["filename"]
         if not path.is_file():
             return jsonify({"success": False, "error": "File missing"}), 404
+        try:
+            data = path.read_bytes()
+        except FileNotFoundError:
+            return jsonify({"success": False, "error": "File missing"}), 404
 
-        # Count only real downloads (attachment). Inline view does not consume quota.
-        # One charge per unlock session so multi-file packages don't burn mid-pack.
         should_burn = False
-        if not inline:
+        if not inline and (row["burn_after"] or row["max_downloads"] == 1):
+            # Claim the final download before returning any bytes. Keep the file
+            # list until deletion so cleanup can retry after a crash or disk error.
+            claim = db.execute(
+                """UPDATE burn_drops
+                   SET status = 'burned', download_count = download_count + 1
+                   WHERE id = ? AND status = 'active'
+                     AND download_count < max_downloads
+                     AND julianday(expires_at) > julianday('now')""",
+                (row["id"],),
+            )
+            db.commit()
+            if claim.rowcount != 1:
+                return jsonify({"success": False, "error": "Drop is no longer available"}), 410
+            should_burn = True
+        elif not inline:
+            # Multi-download plans still charge once per unlock session.
             _new_count, should_burn = _charge_download_once(db, row, view_token, token)
 
-        data = path.read_bytes()
         if should_burn:
             try:
                 _destroy_drop(db, row)
