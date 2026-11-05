@@ -1,5 +1,10 @@
 # NESS Suite
 
+## Multi-download follow-up
+
+This branch prepares the extension of the atomic claim to multi-download plans. [Requirements, regression cases and the final-session policy question](docs/contributions/BURN_MULTI_DOWNLOAD_PLAN.md) are recorded for review. The application currently includes the initial single-use correction described below.
+
+
 ## NESS Burn contribution
 
 This branch proposes a focused change to single-use attachment downloads. If two requests reach the same drop at the same time, one SQLite update claims the download before the response is sent. The regression tests also cover retrying after a failed file read and cleaning up after a failed deletion.
