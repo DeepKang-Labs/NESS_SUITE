@@ -157,52 +157,74 @@ def _view_session_ok(view_token: str, public_token: str) -> bool:
 
 
 def _charge_download_once(db, row, view_token: str, public_token: str):
-    """Charge max_downloads at most once per unlock session (or once/2min passwordless).
+    """Commit one quota claim per session; return (None, False) if unavailable.
 
-    Multi-file drops must not burn after file 2 of 3 when the plan still has
-    downloads remaining. Returns (new_count, should_burn).
+    The suite runs in one process. Hold the session lock until the SQLite
+    transaction commits so parallel requests cannot reuse an uncommitted claim.
+    Passwordless requests retain the existing same-client two-minute window.
     """
-    charge = True
-    if view_token:
-        with _VIEW_SESSIONS_LOCK:
-            rec = _VIEW_SESSIONS.get(view_token)
-            if rec and rec.get("drop") == public_token:
-                if rec.get("dl_charged"):
-                    charge = False
-                else:
-                    rec["dl_charged"] = True
-    else:
-        # Passwordless: coalesce bursts from same client key
+    session_key = view_token
+    if not view_token:
         try:
             from flask import request as fr
-            ip = (getattr(fr, "remote_addr", None) or "unknown")
+            ip = getattr(fr, "remote_addr", None) or "unknown"
         except Exception:
             ip = "unknown"
-        key = f"anon-dl:{public_token}:{ip}"
+        session_key = f"anon-dl:{public_token}:{ip}"
+
+    with _VIEW_SESSIONS_LOCK:
         now = time.time()
-        with _VIEW_SESSIONS_LOCK:
-            rec = _VIEW_SESSIONS.get(key)
-            if rec and rec.get("exp", 0) > now and rec.get("dl_charged"):
-                charge = False
-            else:
-                _VIEW_SESSIONS[key] = {
-                    "drop": public_token,
-                    "exp": now + 120,
-                    "dl_charged": True,
-                }
+        rec = _VIEW_SESSIONS.get(session_key)
+        if rec and (rec.get("drop") != public_token or
+                    (not view_token and rec.get("exp", 0) <= now)):
+            rec = None
 
-    if not charge:
-        return int(row["download_count"]), False
+        if rec and rec.get("dl_charged"):
+            current = db.execute(
+                """SELECT download_count FROM burn_drops
+                   WHERE id = ? AND status = 'active'
+                     AND download_count < max_downloads
+                     AND julianday(expires_at) > julianday('now')""",
+                (row["id"],),
+            ).fetchone()
+            if not current:
+                return None, False
+            return int(current["download_count"]), False
 
-    new_count = int(row["download_count"]) + 1
-    db.execute(
-        "UPDATE burn_drops SET download_count = ? WHERE id = ?",
-        (new_count, row["id"]),
-    )
-    db.commit()
-    should_burn = bool(row["burn_after"]) or new_count >= int(row["max_downloads"])
-    return new_count, should_burn
+        try:
+            claim = db.execute(
+                """UPDATE burn_drops SET download_count = download_count + 1
+                   WHERE id = ? AND status = 'active'
+                     AND download_count < max_downloads
+                     AND julianday(expires_at) > julianday('now')""",
+                (row["id"],),
+            )
+            if claim.rowcount != 1:
+                db.rollback()
+                return None, False
+            current = db.execute(
+                "SELECT download_count, max_downloads, burn_after FROM burn_drops WHERE id = ?",
+                (row["id"],),
+            ).fetchone()
+            new_count = int(current["download_count"])
+            should_burn = bool(current["burn_after"]) or new_count >= int(current["max_downloads"])
+            if should_burn:
+                db.execute("UPDATE burn_drops SET status = 'burned' WHERE id = ?", (row["id"],))
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
+        if not view_token:
+            _VIEW_SESSIONS[session_key] = {
+                "drop": public_token,
+                "exp": now + 120,
+                "dl_charged": True,
+            }
+        elif rec:
+            rec["dl_charged"] = True
+
+        return new_count, should_burn
 
 
 # ── Unlock brute-force protection (per drop token, disk-persisted) ───────────
@@ -1111,7 +1133,9 @@ def _mount_routes(app, deps):
             should_burn = True
         elif not inline:
             # Multi-download plans still charge once per unlock session.
-            _new_count, should_burn = _charge_download_once(db, row, view_token, token)
+            charged_count, should_burn = _charge_download_once(db, row, view_token, token)
+            if charged_count is None:
+                return jsonify({"success": False, "error": "Drop is no longer available"}), 410
 
         if should_burn:
             try:

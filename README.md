@@ -4,14 +4,14 @@
 
 [Initial single-download PR text and opening link](docs/contributions/BURN_SINGLE_DOWNLOAD_PR.md). Upstream PR creation is pending. [Fresh single-download validation](docs/contributions/BURN_SINGLE_DOWNLOAD_VALIDATION.md) records three passing regression cases.
 
-This branch prepares the extension of the atomic claim to multi-download plans. [Requirements, regression cases and the final-session policy question](docs/contributions/BURN_MULTI_DOWNLOAD_PLAN.md) are recorded for review. The application currently includes the initial single-use correction described below.
+This branch extends the atomic claim to multi-download plans. The quota is incremented conditionally in SQLite and the session marker is set after commit. Eighteen regression tests pass on Linux, including the original single-use cases. [Implementation, regression cases and the final-session policy question](docs/contributions/BURN_MULTI_DOWNLOAD_PLAN.md) and [validation results](docs/contributions/BURN_MULTI_DOWNLOAD_VALIDATION.md) are available for review.
 
 
 ## NESS Burn contribution
 
-This branch proposes a focused change to single-use attachment downloads. If two requests reach the same drop at the same time, one SQLite update claims the download before the response is sent. The regression tests also cover retrying after a failed file read and cleaning up after a failed deletion.
+The initial single-use correction remains included. Multi-download requests now use an incremental conditional claim, with one quota unit per unlock session and the existing passwordless client window. Exhausted drops are marked burned in the same transaction so cleanup can recover after an interruption. The existing immediate-destruction policy is retained pending maintainer confirmation.
 
-[Upstream baseline `863e296`](https://github.com/Frahane/NESS_SUITE/commit/863e296604d3b95654b4c8bdf7af2bca4093b78b) · [Compare with the baseline](https://github.com/DeepKang-Labs/NESS_SUITE/compare/863e296604d3b95654b4c8bdf7af2bca4093b78b...contribution%2Fburn-single-download) · [Code](burn.py) · [Regression tests](tests/test_burn_single_download.py)
+[Upstream baseline `863e296`](https://github.com/Frahane/NESS_SUITE/commit/863e296604d3b95654b4c8bdf7af2bca4093b78b) · [Initial contribution](https://github.com/DeepKang-Labs/NESS_SUITE/tree/contribution/burn-single-download) · [Multi-download changes](https://github.com/DeepKang-Labs/NESS_SUITE/compare/contribution%2Fburn-single-download...contribution%2Fburn-multi-download) · [Code](burn.py) · [Regression tests](tests/test_burn_single_download.py)
 
 From the repository root, run the tests in a Python environment with the project dependencies installed.
 
@@ -20,7 +20,7 @@ python -m pip install -r requirements.txt
 python -m unittest discover -s tests -p test_burn_single_download.py -v
 ```
 
-The three tests use a temporary SQLite database and a synthetic file. The project documentation follows below.
+The eighteen tests use a temporary SQLite database and synthetic files. The quota fixtures represent multi-download capacity without exercising a paid activation. Session accounting follows the current single-process architecture. HEAD metadata behavior is tracked as a separate follow-up. The project documentation follows below.
 
 ---
 

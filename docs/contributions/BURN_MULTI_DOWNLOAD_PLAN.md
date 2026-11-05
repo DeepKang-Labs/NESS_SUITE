@@ -1,6 +1,6 @@
 # NESS Burn multi-download follow-up
 
-The initial single-use fix is proposed separately from this extension. This branch records the multi-download requirements for review. It adds documentation and keeps the initial implementation and its three regression tests as the starting point.
+The initial single-use fix is proposed separately from this extension. This branch implements the multi-download quota extension and retains the initial single-use correction. The implementation and its eighteen regression cases are ready for review.
 
 ## Accounting contract
 
@@ -8,16 +8,17 @@ A successful claim consumes one unit of the drop's download quota. Files fetched
 
 Two independent sessions competing for the last available unit must produce one successful claim. A session must be marked charged only after its database claim has committed. A failed claim must not authorize a response body or cause later requests to bypass accounting.
 
-## Implementation outline
+## Implemented changes
 
-- Replace the stale absolute assignment in `_charge_download_once` with an incremental conditional update.
-- Preserve the existing conditions for an active, unexpired drop with quota available.
-- Read the resulting counter within the same transaction before deciding whether the drop should burn. A subsequent SELECT avoids introducing a requirement for SQLite RETURNING support.
-- Coordinate the session marker with the database commit. Requests sharing a session must not treat an in-flight or failed claim as successful.
-- Keep file reads before the claim and preserve cleanup retry behavior from the single-use fix.
-- Check already-charged requests against the drop's current availability rules.
+- New claims use an incremental conditional update in `_charge_download_once`.
+- The claim requires an active, unexpired drop with quota available.
+- The resulting counter is read within the transaction before deciding whether the drop should burn. This uses a subsequent SELECT and supports SQLite versions without RETURNING.
+- The session marker is published after commit while holding the session lock.
+- File reads precede the claim and cleanup retains the existing retry behavior.
+- Already-charged requests recheck the drop's availability before delivery.
+- An exhausted drop is marked burned within the claim transaction, preserving file metadata until cleanup succeeds.
 
-The SQL claim should retain the following shape.
+The SQL claim retains the following shape.
 
 ```sql
 UPDATE burn_drops
@@ -42,16 +43,16 @@ A row count of zero must prevent delivery for a request requiring a new claim. T
 | M6 | A file read fails before the claim | The counter and session charge marker remain available for a valid retry |
 | M7 | The claim fails or its transaction rolls back | No successful delivery and no permanently charged session marker |
 | M8 | Passwordless requests share a client key and time window | Existing coalescing behavior is preserved |
-| M9 | A HEAD request reaches the file route | Check metadata behavior and ensure it does not consume quota |
+| M9, separate follow-up | A HEAD request reaches the file route | Metadata behavior remains to be corrected and tested separately |
 
-Use temporary SQLite databases, synthetic files and controlled barriers to reproduce concurrent reads. The extension must preserve the original single-use regression cases. Capture Python and SQLite versions with the eventual results.
+The tests use temporary SQLite databases, synthetic files and controlled barriers to reproduce concurrent reads. They include the original three single-use regression cases and cover M1 through M8, including rollback and interrupted-cleanup cases. [Validation results and versions](BURN_MULTI_DOWNLOAD_VALIDATION.md).
 
 ## Rule to confirm for the final session
 
-A multi-file session may consume the final available unit before all of its files have been fetched. The current implementation destroys the drop on exhaustion, which can prevent later files in that session from being retrieved. Confirm whether that session must be allowed to finish or whether immediate destruction is the intended policy before changing cleanup behavior. The initial PR does not decide this policy.
+A multi-file session may consume the final available unit before all of its files have been fetched. The current implementation destroys the drop on exhaustion, which can prevent later files in that session from being retrieved. Confirm whether that session must be allowed to finish or whether immediate destruction is the intended policy before changing cleanup behavior. This proposal preserves immediate destruction on exhaustion. Allowing the final session to finish all files would require a separate lifecycle decision.
 
 ## Status
 
-The multi-download implementation and these additional regression cases have not been executed. The execution environment was unavailable during preparation of this follow-up. The initial single-use tests remain in `tests/test_burn_single_download.py`. They have now been rerun successfully in a fresh Linux environment. See [the validation record](BURN_SINGLE_DOWNLOAD_VALIDATION.md). The additional multi-download cases above remain pending.
+The corrected application passes eighteen tests on Linux. With the same eighteen cases, the pre-extension application has nine expected failures and nine passes. The initial single-download contribution remains on its separate branch. The multi-file final-session policy and HEAD metadata follow-up remain open.
 
 Baseline for this branch is `08d13c6b7a8d952f6ecddc4ede39d7a1d9d234e7` in the contributor fork, based on upstream `863e296604d3b95654b4c8bdf7af2bca4093b78b`.
