@@ -2,6 +2,8 @@
 
 ## Multi-download follow-up
 
+[Initial single-download PR text and opening link](docs/contributions/BURN_SINGLE_DOWNLOAD_PR.md). Upstream PR creation is pending.
+
 This branch prepares the extension of the atomic claim to multi-download plans. [Requirements, regression cases and the final-session policy question](docs/contributions/BURN_MULTI_DOWNLOAD_PLAN.md) are recorded for review. The application currently includes the initial single-use correction described below.
 
 
