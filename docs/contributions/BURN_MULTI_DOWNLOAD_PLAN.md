@@ -52,6 +52,6 @@ A multi-file session may consume the final available unit before all of its file
 
 ## Status
 
-The multi-download implementation and these additional regression cases have not been executed. The execution environment was unavailable during preparation of this follow-up. The initial single-use tests remain in `tests/test_burn_single_download.py`.
+The multi-download implementation and these additional regression cases have not been executed. The execution environment was unavailable during preparation of this follow-up. The initial single-use tests remain in `tests/test_burn_single_download.py`. They have now been rerun successfully in a fresh Linux environment. See [the validation record](BURN_SINGLE_DOWNLOAD_VALIDATION.md). The additional multi-download cases above remain pending.
 
 Baseline for this branch is `08d13c6b7a8d952f6ecddc4ede39d7a1d9d234e7` in the contributor fork, based on upstream `863e296604d3b95654b4c8bdf7af2bca4093b78b`.
