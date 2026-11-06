@@ -368,3 +368,23 @@ STORAGE_BACKEND = _env("STORAGE_BACKEND", "local").strip().lower()
 STORAGE_IPFS_API = _env("STORAGE_IPFS_API", "").rstrip("/")  # e.g. http://127.0.0.1:5001
 STORAGE_IPFS_GATEWAY = _env("STORAGE_IPFS_GATEWAY", "").rstrip("/")  # e.g. http://127.0.0.1:8080
 STORAGE_IPFS_TIMEOUT = _env_int("STORAGE_IPFS_TIMEOUT", 30)
+
+
+# ── NESS Wormhole (client-side tools, paid access license) ──────────────
+# Price 0 = free (no NCH). TTL is access window after successful payment.
+WORMHOLE_TOOLS = {
+    "dpo": {
+        "id": "dpo",
+        "label": "EmerDPO possession",
+        "price_nch": _env_int("WORMHOLE_DPO_PRICE_NCH", 120),
+        "ttl_minutes": _env_int("WORMHOLE_DPO_TTL_MIN", 10080),  # 7 days
+        "tagline": "Issue QR lots · claim gates · command text only",
+    },
+    "offline": {
+        "id": "offline",
+        "label": "Offline sealed pair",
+        "price_nch": _env_int("WORMHOLE_OFFLINE_PRICE_NCH", 120),
+        "ttl_minutes": _env_int("WORMHOLE_OFFLINE_TTL_MIN", 10080),
+        "tagline": "AES-256-GCM · two carriers · fully offline",
+    },
+}

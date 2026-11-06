@@ -1120,6 +1120,15 @@ body::before {
   border-color: var(--line);
   color: var(--text-hi);
 }
+.suite-link-hint {
+  font-weight: 400;
+  font-size: 0.78em;
+  color: var(--muted);
+  white-space: normal;
+}
+.suite-link.is-active .suite-link-hint {
+  color: var(--muted);
+}
 .suite-link.is-active {
   background: var(--plan-bg-sel);
   border-color: var(--line-hi);

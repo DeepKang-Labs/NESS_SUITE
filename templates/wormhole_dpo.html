@@ -21,6 +21,31 @@
 <body>
 <div id="toasts"></div>
 
+<div class="overlay" id="wh-pay-modal" style="display:none;">
+  <div class="modal">
+    <h3 id="wh-pay-title">Unlock with NESS Coin-hours</h3>
+    <p class="sub" id="wh-pay-sub">Send the amount in NCH, then paste the transaction hash.</p>
+    <div class="pay-box">
+      <div class="pay-label">Payment address</div>
+      <div class="pay-addr-row">
+        <div class="pay-addr" id="wh-pay-address">—</div>
+        <button type="button" class="pay-icon-btn" id="wh-btn-copy-pay" title="Copy address" aria-label="Copy payment address">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+      </div>
+      <div class="pay-label">Amount</div>
+      <div class="pay-amount" id="wh-pay-amount">—</div>
+    </div>
+    <label class="field" for="wh-tx-hash">Transaction hash</label>
+    <input type="text" id="wh-tx-hash" class="field" placeholder="Paste transaction hash" autocomplete="off" spellcheck="false">
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="wh-pay-close">Cancel</button>
+      <button type="button" class="btn" id="wh-btn-verify">Verify &amp; unlock</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="wrap wormhole-page">
   <header class="hero">
 <h1><span class="ness">NESS</span> Wormhole · DPO</h1>
@@ -33,6 +58,7 @@
         <span class="status-dot online" id="wh-dot"></span>
         <span id="wh-status-label">Offline tool · no chain broadcast</span>
       </div>
+      <div id="wh-access-label" style="font-size:0.78rem;color:var(--muted);margin-top:0.35rem;"></div>
     </div>
     <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light / dark mode" title="Toggle theme">
       <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
@@ -44,6 +70,21 @@
       </svg>
     </button>
   </header>
+
+  <div class="card" id="wh-pay-gate" style="display:none;">
+    <div class="section-label">Access license</div>
+    <p style="margin:0 0 0.5rem;color:var(--text);line-height:1.45;">
+      This Wormhole tool is unlocked with NESS Coin-hours (NCH). Payment is verified on-chain; access is bound to this device for the license window.
+    </p>
+    <div class="gate-price" id="wh-gate-price">—</div>
+    <div class="gate-ttl" id="wh-gate-ttl">—</div>
+    <div class="actions">
+      <button type="button" class="btn" id="wh-btn-unlock" data-tool="dpo">Pay with NCH</button>
+    </div>
+    <p class="fineprint" id="wh-access-label" style="margin-top:0.75rem;"></p>
+  </div>
+  <div id="wh-tool-body" style="display:none;">
+
 <div id="fatal" class="fatal"></div>
 
   <div class="card">
@@ -192,11 +233,13 @@
   </div>
 </div>
 
+</div><!-- #wh-tool-body -->
 <script src="/static/js/suite-nav.js"></script>
 <script src="/static/js/confirm-modal.js"></script>
 <script src="/static/js/wormhole-qr.js"></script>
 <script src="/static/js/wormhole-core.js"></script>
 <script src="/static/js/wormhole-dpo.js"></script>
 <script src="/static/js/wormhole-suite.js"></script>
+<script src="/static/js/wormhole-pay.js"></script>
 </body>
 </html>

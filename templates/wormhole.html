@@ -21,6 +21,31 @@
 <body>
 <div id="toasts"></div>
 
+<div class="overlay" id="wh-pay-modal" style="display:none;">
+  <div class="modal">
+    <h3 id="wh-pay-title">Unlock with NESS Coin-hours</h3>
+    <p class="sub" id="wh-pay-sub">Send the amount in NCH, then paste the transaction hash.</p>
+    <div class="pay-box">
+      <div class="pay-label">Payment address</div>
+      <div class="pay-addr-row">
+        <div class="pay-addr" id="wh-pay-address">—</div>
+        <button type="button" class="pay-icon-btn" id="wh-btn-copy-pay" title="Copy address" aria-label="Copy payment address">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+      </div>
+      <div class="pay-label">Amount</div>
+      <div class="pay-amount" id="wh-pay-amount">—</div>
+    </div>
+    <label class="field" for="wh-tx-hash">Transaction hash</label>
+    <input type="text" id="wh-tx-hash" class="field" placeholder="Paste transaction hash" autocomplete="off" spellcheck="false">
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="wh-pay-close">Cancel</button>
+      <button type="button" class="btn" id="wh-btn-verify">Verify &amp; unlock</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="wrap wormhole-page">
   <header class="hero">
 <h1><span class="ness">NESS</span> Wormhole</h1>
@@ -31,7 +56,7 @@
     </button>
       <div class="status-pill">
         <span class="status-dot online"></span>
-        <span>Client-side tools · no suite payment rail</span>
+        <span>Client-side tools · NCH access when configured</span>
       </div>
     </div>
     <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light / dark mode" title="Toggle theme">
@@ -48,15 +73,17 @@
   <div class="card">
     <div class="section-label">Choose a wormhole tool</div>
     <div class="plans" style="display:grid;gap:0.85rem;">
-      <a class="suite-product-card" href="/wormhole/dpo">
+      <a class="suite-product-card" data-tool="dpo" href="/wormhole/dpo">
         <div class="spc-title">EmerDPO possession</div>
         <div class="spc-body">Issue QR lots for physical objects. Claim with sealed secret. Emits NVS command text — never broadcasts.</div>
         <div class="spc-meta">QR 1 open · QR 2 sealed · CLAIM / OTP gates</div>
+        <div class="spc-price">—</div>
       </a>
-      <a class="suite-product-card" href="/wormhole/offline">
+      <a class="suite-product-card" data-tool="offline" href="/wormhole/offline">
         <div class="spc-title">Offline sealed pair</div>
         <div class="spc-body">Split a bundle across two carriers with AES-256-GCM. Human triple fingerprint. Fully offline.</div>
         <div class="spc-meta">QR A ciphertext · QR B key · optional EmerSSH</div>
+        <div class="spc-price">—</div>
       </a>
     </div>
   </div>
@@ -64,5 +91,6 @@
 </div>
 <script src="/static/js/suite-nav.js"></script>
 <script src="/static/js/wormhole-suite.js"></script>
+<script src="/static/js/wormhole-pay.js"></script>
 </body>
 </html>

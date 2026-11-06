@@ -87,8 +87,8 @@
 /* Theme toggle: suite position (top-right), clear of burger */
 .wormhole-page .theme-toggle {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 6px;
+  right: 12px;
   z-index: 5;
   margin: 0;
   width: 40px;
@@ -440,4 +440,46 @@
   .wormhole-page .card, .wormhole-page .qrbox {
     break-inside: avoid;
   }
+}
+
+
+/* Access gate + pay modal */
+#wh-pay-gate .gate-price {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 1.35rem;
+  color: var(--accent);
+  margin: 0.35rem 0 0.15rem;
+}
+#wh-pay-gate .gate-ttl {
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+}
+.suite-product-card.is-locked {
+  opacity: 0.92;
+  position: relative;
+}
+.suite-product-card .spc-price {
+  margin-top: 0.55rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+#wh-access-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+#wh-pay-modal.overlay {
+  z-index: 80;
+}
+#wh-pay-modal .pay-addr {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.82rem;
+  word-break: break-all;
+  color: var(--text-hi);
+}
+#wh-btn-verify.busy {
+  opacity: 0.7;
+  pointer-events: none;
 }

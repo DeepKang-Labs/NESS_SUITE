@@ -1,6 +1,6 @@
 # NESS Suite
 
-**PrivateNess Network · NESS Coin-Hours (NCH) · TempMail · Burn · Pay · Storage**
+**PrivateNess Network · NESS Coin-Hours (NCH) · TempMail · Burn · Pay · Storage · Wormhole**
 
 Single-process Python application that serves four related products on one payment rail, one SQLite database, and one design system:
 
@@ -9,7 +9,8 @@ Single-process Python application that serves four related products on one payme
 | **NESS TempMail** | Ephemeral inboxes; inbound SMTP; paid capacity by TTL / quota |
 | **NESS Burn** | One-time encrypted content drops (journalism, whistleblowing, handoff) |
 | **NESS Pay** (Invoice) | Payment links: invoice, coffee, fundraising — NCH to *your* address |
-| **NESS Storage** | **Private** encrypted vault on this device — **not** for sharing (NESS Burn is for Sharing) |
+| **NESS Wormhole** | Client-side DPO possession + offline sealed pair (no NCH rail) |
+| **NESS Storage** | **Private** encrypted vault on this device — **not** for sharing (use Burn) |
 
 Paid activations settle **on-chain**.
 
@@ -37,6 +38,7 @@ Paid activations settle **on-chain**.
                 ├── burn.py         Burn routes (register)
                 ├── invoice.py      Pay / Invoice routes (register)
                 ├── storage.py      Private Storage routes (register)
+                ├── wormhole.py     Wormhole access licenses (register)
                 └── config.py       dotenv only — no business logic
 
   SMTP thread ──► aiosmtpd ──► messages table (registered mailboxes only)
@@ -93,6 +95,16 @@ Theme key is exactly **`ness_theme`** (`light` | `dark`) across all products.
 ## Plan tables (defaults — override via `.env`)
 
 Amounts and limits are defined in `config.py` and are **environment-overridable**. Defaults below match the code at packaging time.
+
+
+### Wormhole
+
+- Client-side tools: **EmerDPO possession** and **Offline sealed pair**
+- No server-side payload storage; optional **NCH access license** per tool + device
+- Prices / TTL via dotenv: `WORMHOLE_DPO_PRICE_NCH`, `WORMHOLE_OFFLINE_PRICE_NCH`, `WORMHOLE_*_TTL_MIN` (0 NCH = free)
+- Dedicated API: `GET /api/wormhole/access`, `POST /api/wormhole/intent`, `POST /api/wormhole/verify`
+- Cross-product anti-replay via `_claim_tx` + `wormhole_licenses.tx_hash`
+
 
 ### TempMail (`TIERS`)
 
@@ -256,7 +268,7 @@ requirements.txt
 ## What this is not
 
 - Not a full Skycoin node or wallet — verification is via public explorers  
-- Not a shared cloud drive — **Storage is private to the device vault**; sharing is via **NESS Burn**  
+- Not a shared cloud drive — **Storage is private to the device vault**; sharing is **Burn**  
 - Not KYC’d virtual numbers or identity services  
 
 NESS Suite is built to stay small, auditable, and honest about cryptography and chain settlement.

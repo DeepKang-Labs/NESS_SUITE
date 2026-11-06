@@ -12,11 +12,11 @@
       '<div class="suite-backdrop" id="suite-backdrop" hidden></div>' +
       '<nav class="suite-drawer" id="suite-drawer" aria-hidden="true">' +
         '<div class="suite-drawer-head">NESS Suite</div>' +
-        '<a class="suite-link" data-suite="mail" href="/">TempMail</a>' +
-        '<a class="suite-link" data-suite="burn" href="/burn">Burn</a>' +
-        '<a class="suite-link" data-suite="invoice" href="/invoice">Pay</a>' +
-        '<a class="suite-link" data-suite="storage" href="/storage">Storage</a>' +
-        '<a class="suite-link" data-suite="wormhole" href="/wormhole">Wormhole</a>' +
+        '<a class="suite-link" data-suite="mail" href="/">NESS TempMail</a>' +
+        '<a class="suite-link" data-suite="burn" href="/burn">NESS Burn <span class="suite-link-hint">(notes · files · voice)</span></a>' +
+        '<a class="suite-link" data-suite="invoice" href="/invoice">NESS Pay</a>' +
+        '<a class="suite-link" data-suite="storage" href="/storage">NESS Storage</a>' +
+        '<a class="suite-link" data-suite="wormhole" href="/wormhole">NESS Wormhole</a>' +
         '<p class="suite-drawer-foot">PrivateNess Network</p>' +
       "</nav>";
     document.body.appendChild(root);

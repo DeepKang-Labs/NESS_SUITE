@@ -94,6 +94,7 @@ from config import (  # noqa: E402
 import burn as burn_product
 import invoice as invoice_product
 import storage as storage_product
+import wormhole as wormhole_product
 
 
 # ==========================================================================
@@ -924,8 +925,7 @@ def _claim_tx(db, txid: str, product: str, amount_nch=None, ref_id=None) -> bool
 
 
 def _tx_already_used(db, txid: str) -> bool:
-
-    """True if this tx was already consumed by mail, burn, or invoice."""
+    """True if this tx was already consumed by any suite product."""
     txid = _normalize_txid(txid)
     if not txid:
         return False
@@ -934,11 +934,13 @@ def _tx_already_used(db, txid: str) -> bool:
         "SELECT 1 FROM subscriptions WHERE transaction_hash = ?",
         "SELECT 1 FROM burn_drops WHERE transaction_hash = ?",
         "SELECT 1 FROM invoices WHERE tx_hash = ?",
+        "SELECT 1 FROM wormhole_licenses WHERE tx_hash = ?",
     ):
         try:
             if db.execute(sql, (txid,)).fetchone():
                 return True
         except Exception:
+            # Table may not exist yet on a partial migrate / first boot.
             continue
     return False
 
@@ -1672,7 +1674,7 @@ def create_payment_intent():
     except Exception:
         body = {}
     product = (request.form.get("product") or body.get("product") or "mail").strip().lower()
-    if product not in ("mail", "burn", "storage"):
+    if product not in ("mail", "burn", "storage", "wormhole"):
         return jsonify({"success": False, "error": "Invalid product"}), 400
     plan_id = (request.form.get("plan") or body.get("plan") or "").strip().lower()
 
@@ -1686,11 +1688,24 @@ def create_payment_intent():
         if plan_id not in _T or int(_T[plan_id]["price_nch"]) <= 0:
             return jsonify({"success": False, "error": "Invalid paid plan"}), 400
         base = int(_T[plan_id]["price_nch"])
-    else:
+    elif product == "storage":
         from config import STORAGE_TIERS as _T
         if plan_id not in _T or int(_T[plan_id]["price_nch"]) <= 0:
             return jsonify({"success": False, "error": "Invalid paid plan"}), 400
         base = int(_T[plan_id]["price_nch"])
+    elif product == "wormhole":
+        # Prefer dedicated /api/wormhole/intent. Shared endpoint accepts tool as plan.
+        from config import WORMHOLE_TOOLS as _W
+        tool = (plan_id or "").strip().lower()
+        if tool not in _W or int(_W[tool]["price_nch"]) <= 0:
+            return jsonify({
+                "success": False,
+                "error": "Invalid wormhole tool — use plan=dpo or plan=offline",
+            }), 400
+        base = int(_W[tool]["price_nch"])
+        plan_id = f"wormhole:{tool}"
+    else:
+        return jsonify({"success": False, "error": "Invalid product"}), 400
 
     # Catalog amount. Anti front-running is the secret intent_id (not shown in UI).
     # Overpayment is accepted at verify (hours_received >= amount_nch).
@@ -2086,30 +2101,29 @@ storage_product.register(app, {
     "_explorer_unavailable_payload": _explorer_unavailable_payload,
 })
 
+wormhole_product.register(app, {
+    "get_db": get_db,
+    "jsonify": jsonify,
+    "request": request,
+    "HAS_FLASK": HAS_FLASK,
+    "render_template": render_template if HAS_FLASK else None,
+    "_rate_ok": _rate_ok,
+    "_rate_key": _rate_key,
+    "_rate_global": _rate_global,
+    "_client_device_id": _client_device_id,
+    "_claim_tx": _claim_tx,
+    "_tx_already_used": _tx_already_used,
+    "verify_nch_payment_on_chain": verify_nch_payment_on_chain,
+    "ExplorerUnavailable": ExplorerUnavailable,
+    "PaymentVerificationError": PaymentVerificationError,
+    "_normalize_txid": _normalize_txid,
+    "_is_plausible_txid": _is_plausible_txid,
+    "_explorer_unavailable_payload": _explorer_unavailable_payload,
+})
 
 
 
-# ==========================================================================
-# 7b. WORMHOLE (client-side tools — no payment rail)
-# ==========================================================================
 
-@app.route("/wormhole")
-def wormhole_hub():
-    if HAS_FLASK:
-        return render_template("wormhole.html")
-    return ("Wormhole requires Flask templates", 500)
-
-@app.route("/wormhole/dpo")
-def wormhole_dpo():
-    if HAS_FLASK:
-        return render_template("wormhole_dpo.html")
-    return ("Wormhole DPO requires Flask templates", 500)
-
-@app.route("/wormhole/offline")
-def wormhole_offline():
-    if HAS_FLASK:
-        return render_template("wormhole_offline.html")
-    return ("Wormhole offline requires Flask templates", 500)
 
 
 # ==========================================================================

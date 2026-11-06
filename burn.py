@@ -157,51 +157,95 @@ def _view_session_ok(view_token: str, public_token: str) -> bool:
 
 
 def _charge_download_once(db, row, view_token: str, public_token: str):
-    """Charge max_downloads at most once per unlock session (or once/2min passwordless).
+    """Commit one quota claim per session; return (None, False) if unavailable.
 
-    Multi-file drops must not burn after file 2 of 3 when the plan still has
-    downloads remaining. Returns (new_count, should_burn).
+    Hold the session lock until the SQLite transaction commits so parallel
+    requests cannot reuse an uncommitted claim. Passwordless requests retain
+    the same-client two-minute coalescing window.
+
+    When the claim exhausts max_downloads (or burn_after), status becomes
+    'burned' so *new* sessions are refused. The charging session may still
+    finish every file in the pack: a dl_charged session is allowed to read
+    while status is 'burned' and files remain on disk. Filesystem removal is
+    decided by the download handler (single-file / burn_after → immediate;
+    multi-file pack → deferred to cleanup after the session finishes).
     """
-    charge = True
-    if view_token:
-        with _VIEW_SESSIONS_LOCK:
-            rec = _VIEW_SESSIONS.get(view_token)
-            if rec and rec.get("drop") == public_token:
-                if rec.get("dl_charged"):
-                    charge = False
-                else:
-                    rec["dl_charged"] = True
-    else:
-        # Passwordless: coalesce bursts from same client key
+    session_key = view_token
+    if not view_token:
         try:
             from flask import request as fr
-            ip = (getattr(fr, "remote_addr", None) or "unknown")
+            ip = getattr(fr, "remote_addr", None) or "unknown"
         except Exception:
             ip = "unknown"
-        key = f"anon-dl:{public_token}:{ip}"
+        session_key = f"anon-dl:{public_token}:{ip}"
+
+    with _VIEW_SESSIONS_LOCK:
         now = time.time()
-        with _VIEW_SESSIONS_LOCK:
-            rec = _VIEW_SESSIONS.get(key)
-            if rec and rec.get("exp", 0) > now and rec.get("dl_charged"):
-                charge = False
-            else:
-                _VIEW_SESSIONS[key] = {
-                    "drop": public_token,
-                    "exp": now + 120,
-                    "dl_charged": True,
-                }
+        rec = _VIEW_SESSIONS.get(session_key)
+        if rec and (rec.get("drop") != public_token or
+                    (not view_token and rec.get("exp", 0) <= now)):
+            rec = None
 
-    if not charge:
-        return int(row["download_count"]), False
+        if rec and rec.get("dl_charged"):
+            # Session already paid its unit — allow remaining files even if
+            # status is burned (quota closed for everyone else).
+            current = db.execute(
+                """SELECT download_count, status FROM burn_drops WHERE id = ?""",
+                (row["id"],),
+            ).fetchone()
+            if not current:
+                return None, False
+            st = (current["status"] or "").lower()
+            if st == "active":
+                return int(current["download_count"]), False
+            if st == "burned":
+                return int(current["download_count"]), False
+            return None, False
 
-    new_count = int(row["download_count"]) + 1
-    db.execute(
-        "UPDATE burn_drops SET download_count = ? WHERE id = ?",
-        (new_count, row["id"]),
-    )
-    db.commit()
-    should_burn = bool(row["burn_after"]) or new_count >= int(row["max_downloads"])
-    return new_count, should_burn
+        try:
+            claim = db.execute(
+                """UPDATE burn_drops SET download_count = download_count + 1
+                   WHERE id = ? AND status = 'active'
+                     AND download_count < max_downloads
+                     AND julianday(expires_at) > julianday('now')""",
+                (row["id"],),
+            )
+            if claim.rowcount != 1:
+                db.rollback()
+                return None, False
+            current = db.execute(
+                "SELECT download_count, max_downloads, burn_after FROM burn_drops WHERE id = ?",
+                (row["id"],),
+            ).fetchone()
+            new_count = int(current["download_count"])
+            closed = bool(current["burn_after"]) or new_count >= int(current["max_downloads"])
+            if closed:
+                # Close the drop for *new* sessions; do not delete files here.
+                db.execute(
+                    "UPDATE burn_drops SET status = 'burned' WHERE id = ?",
+                    (row["id"],),
+                )
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        if not view_token:
+            _VIEW_SESSIONS[session_key] = {
+                "drop": public_token,
+                "exp": now + 120,
+                "dl_charged": True,
+            }
+        elif rec:
+            rec["dl_charged"] = True
+        else:
+            _VIEW_SESSIONS[session_key] = {
+                "drop": public_token,
+                "exp": now + _VIEW_SESSION_TTL,
+                "dl_charged": True,
+            }
+
+        return new_count, closed
 
 
 
@@ -406,13 +450,15 @@ def _drop_dir(token: str) -> Path:
 
 
 def _destroy_drop(db, row):
+    """Mark burned and remove files. If rmtree fails, keep files_json for retry."""
     token = row["public_token"]
     d = _drop_dir(token)
     if d.exists():
         shutil.rmtree(d, ignore_errors=True)
     db.execute(
-        "UPDATE burn_drops SET status = 'burned', files_json = '[]' WHERE id = ?",
-        (row["id"],),
+        """UPDATE burn_drops SET status = 'burned',
+           files_json = CASE WHEN ? THEN files_json ELSE '[]' END WHERE id = ?""",
+        (d.exists(), row["id"]),
     )
     db.commit()
 
@@ -432,17 +478,20 @@ def cleanup_burn_expired():
         conn.execute("PRAGMA busy_timeout=5000;")
         now = datetime.now(timezone.utc).isoformat()
         rows = conn.execute(
-            "SELECT * FROM burn_drops WHERE status = 'active' AND expires_at < ?",
+            """SELECT * FROM burn_drops WHERE (status = 'active' AND expires_at < ?)
+               OR (status IN ('burned', 'expired') AND files_json <> '[]')""",
             (now,),
         ).fetchall()
         for row in rows:
             _destroy_drop(conn, row)
-            conn.execute(
-                "UPDATE burn_drops SET status = 'expired' WHERE id = ?", (row["id"],)
-            )
+            if row["status"] != "burned":
+                conn.execute(
+                    "UPDATE burn_drops SET status = 'expired' WHERE id = ?",
+                    (row["id"],),
+                )
         conn.execute(
             "DELETE FROM burn_drops WHERE status IN ('burned','expired') "
-            "AND expires_at < ?",
+            "AND files_json = '[]' AND expires_at < ?",
             ((datetime.now(timezone.utc) - timedelta(days=7)).isoformat(),),
         )
         conn.commit()
@@ -1085,14 +1134,31 @@ def _mount_routes(app, deps):
         path = _drop_dir(token) / meta["filename"]
         if not path.is_file():
             return jsonify({"success": False, "error": "File missing"}), 404
+        try:
+            data = path.read_bytes()
+        except FileNotFoundError:
+            return jsonify({"success": False, "error": "File missing"}), 404
 
-        # Count only real downloads (attachment). Inline view does not consume quota.
-        # One charge per unlock session so multi-file packages don't burn mid-pack.
+        # Quota claim after a successful read. Inline view does not consume quota.
         should_burn = False
         if not inline:
-            _new_count, should_burn = _charge_download_once(db, row, view_token, token)
+            sess_charged = False
+            if view_token:
+                with _VIEW_SESSIONS_LOCK:
+                    _rec = _VIEW_SESSIONS.get(view_token)
+                    if _rec and _rec.get("drop") == token and _rec.get("dl_charged"):
+                        sess_charged = True
+            if sess_charged and (row["status"] or "").lower() == "burned":
+                # Last authorized session finishing multi-file pack after quota close.
+                should_burn = False
+            else:
+                charged_count, closed = _charge_download_once(db, row, view_token, token)
+                if charged_count is None:
+                    return jsonify({"success": False, "error": "Drop is no longer available"}), 410
+                # Immediate filesystem wipe: burn_after policy or single-file pack only.
+                if closed and (bool(row["burn_after"]) or len(files) <= 1):
+                    should_burn = True
 
-        data = path.read_bytes()
         if should_burn:
             try:
                 _destroy_drop(db, row)
