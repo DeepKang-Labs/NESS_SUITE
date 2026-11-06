@@ -91,6 +91,61 @@ class BurnSingleDownloadTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, REPORT)
 
+    def test_head_reports_file_headers_without_claiming_quota(self):
+        with patch.object(Path, "read_bytes", side_effect=AssertionError("HEAD read the file body")):
+            response = self.client.head(self.file_url)
+        self.assertEqual((response.status_code, response.data), (200, b""))
+        self.assertEqual(response.content_length, len(REPORT))
+        self.assertEqual(response.headers["Content-Disposition"], 'attachment; filename="report.txt"')
+        row = self._row()
+        self.assertEqual((row["download_count"], row["status"]), (0, "active"))
+        self.assertTrue(self.file_path.exists())
+
+        download = self.client.get(self.file_url)
+        self.assertEqual((download.status_code, download.data), (200, REPORT))
+        self.assertEqual(self._row()["download_count"], 1)
+        self.assertFalse(self.file_path.exists())
+
+    def test_head_checks_protected_session_without_extending_it(self):
+        burn = self.suite.burn_product
+        passphrase = "fixture-passphrase"
+        with closing(sqlite3.connect(self.db_path)) as db:
+            db.execute(
+                "UPDATE burn_drops SET password_hash = ? WHERE public_token = ?",
+                (burn._hash_password(passphrase), self.token),
+            )
+            db.commit()
+        self.assertEqual(self.client.head(self.file_url).status_code, 403)
+        unlocked = self.client.post(
+            f"/api/burn/{self.token}/unlock", data={"password": passphrase}
+        )
+        self.assertEqual(unlocked.status_code, 200)
+        session = unlocked.json["view_token"]
+        record = burn._VIEW_SESSIONS[session]
+        record["exp"] -= 60
+        deadline = record["exp"]
+
+        response = self.client.head(self.file_url, query_string={"view_token": session})
+        self.assertEqual((response.status_code, response.data), (200, b""))
+        self.assertEqual(record["exp"], deadline)
+        self.assertEqual(self._row()["download_count"], 0)
+        self.assertTrue(self.file_path.exists())
+
+    def test_head_reports_expiry_without_destroying_files(self):
+        with closing(sqlite3.connect(self.db_path)) as db:
+            db.execute(
+                "UPDATE burn_drops SET expires_at = ? WHERE public_token = ?",
+                ("2000-01-01T00:00:00+00:00", self.token),
+            )
+            db.commit()
+
+        self.assertEqual(self.client.head(self.file_url).status_code, 410)
+        row = self._row()
+        self.assertEqual((row["download_count"], row["status"]), (0, "active"))
+        self.assertTrue(self.file_path.exists())
+        self.assertEqual(self.client.get(self.file_url).status_code, 410)
+        self.assertFalse(self.file_path.exists())
+
     def test_failed_removal_is_retried_without_reopening_access(self):
         with patch.object(self.suite.burn_product.shutil, "rmtree"):
             self.assertEqual(self.client.get(self.file_url).status_code, 200)

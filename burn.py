@@ -139,10 +139,11 @@ def _issue_view_session(public_token: str) -> str:
     return tok
 
 
-def _view_session_ok(view_token: str, public_token: str, *, finishing_pack=False) -> bool:
+def _view_session_ok(view_token: str, public_token: str, *, finishing_pack=False, refresh=True) -> bool:
     if not view_token:
         return False
-    _purge_view_sessions()
+    if refresh:
+        _purge_view_sessions()
     with _VIEW_SESSIONS_LOCK:
         rec = _VIEW_SESSIONS.get(view_token)
         if not rec:
@@ -153,8 +154,8 @@ def _view_session_ok(view_token: str, public_token: str, *, finishing_pack=False
             return False
         if finishing_pack and not rec.get("finishes_pack"):
             return False
-        # Sliding window — extend on successful use
-        rec["exp"] = time.time() + _VIEW_SESSION_TTL
+        if refresh:
+            rec["exp"] = time.time() + _VIEW_SESSION_TTL
         return True
 
 
@@ -1093,6 +1094,7 @@ def _mount_routes(app, deps):
 
     @app.route("/api/burn/<token>/file/<int:idx>", methods=["GET", "POST"])
     def api_burn_download(token, idx):
+        metadata_only = request.method == "HEAD"
         db = get_db()
         row = db.execute(
             "SELECT * FROM burn_drops WHERE public_token = ?", (token,)
@@ -1111,12 +1113,15 @@ def _mount_routes(app, deps):
             view_token = (request.form.get("view_token") or request.args.get("view_token") or "").strip()
             inline = (request.args.get("inline") or request.form.get("inline") or "") in ("1", "true", "yes")
         closed = row["status"] == "burned"
-        valid_session = _view_session_ok(view_token, token, finishing_pack=closed)
+        valid_session = _view_session_ok(
+            view_token, token, finishing_pack=closed, refresh=not metadata_only
+        )
         if closed and not valid_session:
             return jsonify({"success": False, "error": "Drop not found"}), 404
         exp = datetime.fromisoformat(row["expires_at"])
         if exp <= datetime.now(timezone.utc):
-            _destroy_drop(db, row)
+            if not metadata_only:
+                _destroy_drop(db, row)
             return jsonify({"success": False, "error": "Expired"}), 410
         if not closed and row["download_count"] >= row["max_downloads"]:
             return jsonify({"success": False, "error": "Access limit reached"}), 410
@@ -1146,13 +1151,18 @@ def _mount_routes(app, deps):
         if not path.is_file():
             return jsonify({"success": False, "error": "File missing"}), 404
         try:
-            data = path.read_bytes()
+            if metadata_only:
+                data = b""
+                content_length = path.stat().st_size
+            else:
+                data = path.read_bytes()
+                content_length = len(data)
         except FileNotFoundError:
             return jsonify({"success": False, "error": "File missing"}), 404
 
-        # Quota claim after a successful read. Inline view does not consume quota.
+        # Only attachment downloads can claim quota.
         should_burn = False
-        if not inline:
+        if not inline and not metadata_only:
             try:
                 charged_count, should_burn = _charge_download_once(
                     db, row, view_token, token, multi_file=len(files) > 1
@@ -1175,13 +1185,14 @@ def _mount_routes(app, deps):
             from flask import Response
             disp = "inline" if inline else "attachment"
             fname = meta["filename"].replace('"', "")
-            return Response(
+            response = Response(
                 data,
                 mimetype=meta.get("content_type") or "application/octet-stream",
                 headers={
                     "Content-Disposition": f'{disp}; filename="{fname}"',
-                    "Content-Length": str(len(data)),
                     "X-Content-Type-Options": "nosniff",
                 },
             )
+            response.content_length = content_length
+            return response
         return data
