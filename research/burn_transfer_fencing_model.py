@@ -184,7 +184,7 @@ def cli(argv: list[str]) -> dict:
         migrate(db)
         target, clock = int(drop_id), float(now)
         if mode == "begin":
-            result = begin_read(db, target, args[0])
+            result = begin_read(db, target, args[0], clock)
         elif mode == "finish":
             result = finish_read(db, args[0], clock)
         elif mode == "cleanup":
