@@ -139,12 +139,12 @@ class PosixFlockFenceTests(unittest.TestCase):
     def test_live_read_pin_blocks_flock_worker_until_completion(self):
         # Session is still valid at read start; then it expires, but a bounded
         # transfer pin keeps the synthetic pack available across workers.
-        pin_token = issue_session(self.db, 7, 1000.0, duration=5.0)
+        # Extend the already-charged finishing-session deadline in the model.
+        # A fresh session cannot be issued after the drop is quota-closed.
         self.db.execute(
-            "UPDATE research_sessions SET charged=1, finishes_pack=1 WHERE token_sha256=?",
-            (__import__("hashlib").sha256(pin_token.encode()).hexdigest(),)
+            "UPDATE research_sessions SET expires_at=1005.0 WHERE drop_id=7"
         )
-        pin = begin_read(self.db, 7, pin_token, 1001.0)
+        pin = begin_read(self.db, 7, self.token, 1001.0)
         self.assertTrue(pin)
         self.assertEqual(self._run(1006)["outcome"], "not_claimed")
         self.assertTrue(self.file.exists())
