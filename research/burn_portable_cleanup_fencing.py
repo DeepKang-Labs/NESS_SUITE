@@ -20,7 +20,7 @@ import sys
 import time
 
 from research.burn_sqlite_lease_model import _digest, connect
-from research.burn_filesystem_crash_harness import _checked_root
+from research.burn_path_safety_research import checked_root, checked_tree, checked_lock_file
 from research.burn_transfer_fencing_model import (
     acquire_cleanup, finish_cleanup, migrate,
 )
@@ -89,6 +89,7 @@ def fenced_cleanup(
     db_path: str, root_path: str, drop_id: int, claim_now: float, *,
     acting_now: float | None = None, lease_duration: float = 5.0,
     pause: bool = False, crash_after_stage: bool = False,
+    failure_at: str | None = None,
 ) -> dict:
     """Serialize deletion claim and file mutations using a cross-process lock.
 
@@ -96,12 +97,10 @@ def fenced_cleanup(
     across both narrows race opportunities ONLY among cooperating workers.
     Stale claim is checked before the first rename/unlink.
     """
-    root = _checked_root(root_path)
+    root = checked_root(root_path)
     if type(drop_id) is not int or drop_id <= 0:
         raise ValueError("invalid synthetic drop ID")
-    locks = root / ".portable-research-locks"
-    locks.mkdir(exist_ok=True)
-    lockpath = locks / f"pack-{drop_id}.lck"
+    lockpath = checked_lock_file(root, drop_id)
     with exclusive_process_lock(lockpath):
         with connect(db_path) as db:
             migrate(db)
@@ -109,6 +108,8 @@ def fenced_cleanup(
             if claim is None:
                 return {"outcome": "not_claimed"}
             generation = claim["generation"]
+            if failure_at == "after_claim":
+                raise OSError("research fault after committed SQLite claim")
             if pause:
                 (root / f".paused-{drop_id}").write_text(
                     str(generation), encoding="ascii"
@@ -122,22 +123,26 @@ def fenced_cleanup(
             instant = claim_now if acting_now is None else acting_now
             if not claim_is_current(db, drop_id, claim["owner"], generation, instant):
                 return {"outcome": "stale", "generation": generation}
-            pack = root / f"pack-{drop_id}"
+            pack = checked_tree(root, f"pack-{drop_id}")
             stage = root / f".trash-{drop_id}-g{generation}"
-            if pack.is_symlink() or (pack.exists() and not pack.is_dir()):
-                raise ValueError("unexpected pack entry; refusing to remove")
-            if pack.is_dir():
+            if stage.exists() or stage.is_symlink():
+                raise ValueError("staging destination unexpectedly exists")
+            if pack is not None:
                 pack.rename(stage)
+            if failure_at == "after_stage":
+                raise OSError("research fault after directory staging")
             if crash_after_stage:
                 print(json.dumps({
                     "outcome": "staged_then_killed", "generation": generation
                 }), flush=True)
                 os._exit(76)
             for candidate in sorted(root.glob(f".trash-{drop_id}-g*")):
-                if candidate.is_dir() and not candidate.is_symlink():
-                    shutil.rmtree(candidate)
-                else:
-                    raise ValueError("unexpected staged entry; refusing to remove")
+                validated = checked_tree(root, candidate.name)
+                if validated is None:
+                    raise ValueError("missing staged entry")
+                shutil.rmtree(validated)
+            if failure_at == "after_unlink":
+                raise OSError("research fault after deletion before DB finalization")
             finished = finish_cleanup(
                 db, drop_id, claim["owner"], generation, instant
             )
@@ -157,11 +162,12 @@ def main():
     p.add_argument("--acting-now", type=float)
     p.add_argument("--pause", action="store_true")
     p.add_argument("--crash-after-stage", action="store_true")
+    p.add_argument("--failure-at", choices=("after_claim", "after_stage", "after_unlink"))
     a = p.parse_args()
     print(json.dumps(fenced_cleanup(
         a.db_path, a.root, a.drop_id, a.claim_now,
         acting_now=a.acting_now, pause=a.pause,
-        crash_after_stage=a.crash_after_stage,
+        crash_after_stage=a.crash_after_stage, failure_at=a.failure_at,
     )), flush=True)
 
 
