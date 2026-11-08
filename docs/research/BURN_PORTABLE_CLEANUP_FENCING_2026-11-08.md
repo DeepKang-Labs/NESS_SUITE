@@ -1,0 +1,92 @@
+# NESS Burn portable cleanup fencing — Windows and Linux research (2026-11-08)
+
+**Status: isolated, synthetic, non-production experiment. No upstream PR.**
+
+## Question
+
+Can separate Python cleanup workers on Windows and Linux prevent an **expired** worker from deleting a synthetic Burn pack after another worker is allowed to reclaim ownership?
+
+Previous Linux-only experiments used `fcntl.flock`; the new experiment tests a **cooperative local-process protocol on both platforms**.
+
+## Proposed protocol
+
+Research implementation: [research/burn_portable_cleanup_fencing.py](../../research/burn_portable_cleanup_fencing.py)
+
+1. Require a research sandbox root with the explicit `.burn_research_sandbox_only` marker.
+2. Derive an unchanging per-drop lock file in `.portable-research-locks`. Do not unlink or replace the lock file during normal cleanup.
+3. Acquire an exclusive OS lock before creating or reclaiming the SQLite deletion claim:
+   - **Windows:** lock byte range `[0, 1)` with `msvcrt.locking(..., LK_NBLCK, 1)` and bounded retries.
+   - **POSIX:** acquire `fcntl.flock(..., LOCK_EX | LOCK_NB)` and bounded retries.
+4. SQLite `BEGIN IMMEDIATE` grants an owner capability and monotonically incremented deletion generation.
+5. While holding the OS lock, verify that the ownership generation and lease expiry are still valid **before first filesystem mutation**.
+6. Only then rename a synthetic pack into a generation-specific staging folder, remove staged files, and commit deletion completion.
+7. Release the OS lock. A hard-killed Python process automatically releases the kernel-level lock; after its SQLite claim expires, a successor can resume staged deletion.
+
+In this model, the **filesystem critical section spans both database ownership and file operations**. This blocks a second *cooperating* cleaner until the current worker releases the lock, avoiding the stale cleaner's original overlap.
+
+## Tests actually executed
+
+[GitHub Actions run 42519652211](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42519652211) — **success** on both GitHub-hosted Ubuntu and Windows with Python 3.12.
+
+| Suite | Cases per OS | Ubuntu | Windows |
+| --- | ---: | --- | --- |
+| New portable cleanup-fencing tests | 8 | PASS | PASS |
+| Previous SQLite finishing-lease model | 5 | PASS | PASS |
+| Previous bounded transfer/deletion recovery model | 10 | PASS | PASS |
+| Previous actual temporary-filesystem crash tests | 6 | PASS | PASS |
+| Existing, unchanged NESS Burn quota regressions | 21 | PASS | PASS |
+| Synthetic loopback HTTP/1.1 streaming experiments | 4 | PASS | PASS |
+| **Total** | **54** | **54/54** | **54/54** |
+
+**Caution:** A successful synthetic model test does not mean NESS Burn production routes were changed or made safe under these conditions. The four streaming experiments are about a *hypothetical streamed-file design*. Current upstream `burn.py` reads the whole file using `Path.read_bytes()` before constructing the response.
+
+The eight new portable tests demonstrate:
+
+1. Suspended worker A's deletion authorization becomes stale; worker B waits on the same OS lock, then reclaims generation 2; A does not delete.
+2. Stale worker with no successor leaves files untouched until a later recovery worker runs.
+3. Abrupt process exit after staging releases the OS lock; another worker removes orphaned staged synthetic files after lease expiry.
+4. Concurrent workers yield one deletion owner and one refusal.
+5. Active short-lived read pin prevents a cooperating cleanup worker from deleting, even after the initiating session expires.
+6. An unmarked directory is refused, without touching the legitimate synthetic pack.
+7. A stable lock file survives the stale-worker and successor sequence instead of being unlinked/recreated.
+8. **Deliberate negative control:** a noncooperating actor can unlink an unlocked data file *despite* the independent lockfile being held. The OS lock is advisory, not a security sandbox.
+
+Every destructive test uses temporary synthetic files and never accesses a real user drop. Forced exits and lock contention use distinct OS processes. Tests inject deterministic **model timestamps** `1002` and `1008` for lease-expiry checks, but exercise the **real native process locks and OS filesystem**.
+
+## Security limitations (must not be hidden)
+
+- `msvcrt.locking` and `flock` use different OS primitives; their observed local-host behavior on hosted CI does not imply cross-OS lock interoperability on shared network filesystems.
+- All mutating cleanup paths must cooperate and acquire the same lock. A noncooperating process can bypass this protocol entirely; the negative-control test proves that.
+- A stable lock directory must be secured against path replacement, symlink, junction, reparse-point and link-file attacks. The current `Path.is_symlink()` check is not an atomic open and is **not** sufficient for production.
+- Blocking the per-drop lock for the full duration of potentially slow disk cleanup can cause contention, lock timeouts, and starvation. Benchmarks are still required.
+- The SQLite claim uses model-injected clock values; real deployment needs a trusted clock and failure policy for skew.
+- This design does not provide a transactional commit across SQLite and the OS filesystem. Crash recovery is demonstrated for staged synthetic files, not general corruption recovery or power-loss durability.
+- It does not ensure an active HTTP client actually receives the entire response; a successful write on the server is not a client acknowledgment.
+- The actual Burn application does not use this protocol, and its process-local `_VIEW_SESSIONS` limitation remains a separate real integration issue.
+- No test here covers network-mounted volumes, multiple hosts, hostile actors, throughput under load, Windows antivirus interference, or arbitrary filesystem permissions.
+
+## Reproduction
+
+On a repository checkout with Python 3.12:
+
+```sh
+python -m unittest discover -s tests -p test_burn_portable_cleanup_fencing.py -v
+python -m unittest discover -s tests -p test_burn_sqlite_lease_model.py -v
+python -m unittest discover -s tests -p test_burn_transfer_fencing_model.py -v
+python -m unittest discover -s tests -p test_burn_filesystem_crash_harness.py -v
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -p test_burn_download_quota.py -v
+python -m unittest discover -s tests -p test_burn_http_stream_crossplatform.py -v
+```
+
+CI workflow: `.github/workflows/burn-portable-fencing-matrix.yml`.
+
+## Decision and next gates
+
+- **Proven for the defined model:** cooperative local-process deletion exclusion and stale-owner refusal on both hosted OSes for tested scenarios.
+- **Not proven:** production security, hostile filesystem actors, multi-host orchestration, or fail-safe integration into real `burn.py`.
+- **Keep** upstream accepted PR #1 and #2 unchanged; neither is a multiworker fix.
+- **No upstream PR yet:** ask Frahane about actual deployment model and whether multi-process workers share a writable local SQLite database and filesystem.
+- **Next science priorities:** repeated race stress, filesystem path hardening, crash injection between SQLite and rename/unlink, and eventually a real Flask route integration branch only after policy/design review. Keep the existing HTTP-streaming experiment as a separate prospective architecture, not an asserted current bug.
+
+Research branch: [research/burn-portable-cleanup-fencing-20261108](https://github.com/DeepKang-Labs/NESS_SUITE/tree/research/burn-portable-cleanup-fencing-20261108).
