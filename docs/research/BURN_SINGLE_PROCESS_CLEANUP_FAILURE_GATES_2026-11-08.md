@@ -45,3 +45,9 @@ The standard `tests/test_burn_download_quota.py` suite of 21 tests is rerun, unc
 - The banner `Compare & pull request` that GitHub may show to contributors after pushing a fork branch is **not** an existing PR and creates no merge. No manual action is required.
 
 **Decision:** Keep branch isolated, no modifications to `Frahane/NESS_SUITE:main`, and no upstream PR #3 at this point.
+
+## Repeated actual-app cleanup characterization
+
+[GitHub Actions run 42533111007](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42533111007): **both OS jobs succeeded**, running all five additional real-app tests four times each (20 successful tests on Ubuntu and 20 on Windows). The unchanged 21 Burn regression tests were separately executed by [run 42533110851](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42533110851).
+
+This repetition adds evidence of test stability, not a proof against every possible intermittent filesystem failure or unexpected permissions/locking environment.
