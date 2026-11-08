@@ -1,0 +1,40 @@
+name: Burn stale-cleaner POSIX fencing (research)
+
+on:
+  push:
+    branches:
+      - research/burn-stale-worker-fencing-20261108
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stale-worker-filesystem-fence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: POSIX flock stale-worker and crash fencing tests (6)
+        run: python -m unittest discover -s tests -p 'test_burn_posix_flock_fencing.py' -v
+      - name: Previous research model tests (21)
+        run: |
+          python -m unittest discover -s tests -p 'test_burn_sqlite_lease_model.py' -v
+          python -m unittest discover -s tests -p 'test_burn_transfer_fencing_model.py' -v
+          python -m unittest discover -s tests -p 'test_burn_filesystem_crash_harness.py' -v
+
+  unchanged-app-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install NESS application dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Existing 21 Burn application regressions
+        run: python -m unittest discover -s tests -p 'test_burn_download_quota.py' -v
