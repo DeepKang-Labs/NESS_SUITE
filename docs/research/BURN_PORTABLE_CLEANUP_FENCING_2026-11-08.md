@@ -90,3 +90,17 @@ CI workflow: `.github/workflows/burn-portable-fencing-matrix.yml`.
 - **Next science priorities:** repeated race stress, filesystem path hardening, crash injection between SQLite and rename/unlink, and eventually a real Flask route integration branch only after policy/design review. Keep the existing HTTP-streaming experiment as a separate prospective architecture, not an asserted current bug.
 
 Research branch: [research/burn-portable-cleanup-fencing-20261108](https://github.com/DeepKang-Labs/NESS_SUITE/tree/research/burn-portable-cleanup-fencing-20261108).
+
+## Repeated-race stability gate
+
+[GitHub Actions run 42519823155](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42519823155) completed successfully.
+
+A separate workflow `.github/workflows/burn-portable-fencing-stress.yml` replays the **eight new independent-process tests five times per operating system** (40 cases on hosted Ubuntu, 40 on hosted Windows). All 80 replays passed. This improves reproducibility evidence but is neither exhaustive race exploration nor a statistical probability-of-failure guarantee.
+
+The complete 54-cases-per-OS matrix was rerun successfully on the same research commit [42519823116](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42519823116).
+
+## Repository maintenance performed
+
+Contributor fork `DeepKang-Labs/NESS_SUITE:main` was fast-forwarded without force from `555a05dfe1fcf6f0aec734906b3066718f6db950` to upstream `Frahane/NESS_SUITE:main` at `420811ccb5b9c2e867e17254652efeaa083242c8`. GitHub comparison confirmed this to be an **eight-commit fast-forward with zero divergent contributor commits**. The research branches remain separate and have not been merged into `main`. This is repository synchronization, not an upstream code contribution.
+
+**Current gate:** No upstream PR should be opened from this research branch unless deployment topology, policy for multi-file quota exhaustion, filesystem path-hardening, durability and fail-closed migration strategy are reviewed.
