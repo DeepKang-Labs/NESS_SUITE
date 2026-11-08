@@ -77,11 +77,11 @@ def checked_lock_file(root: Path, drop_id: int) -> Path:
     if type(drop_id) is not int or drop_id <= 0:
         raise UnsafeResearchPath("invalid synthetic drop id")
     folder = root / ".portable-research-locks"
-    if folder.exists() or folder.is_symlink():
-        if not stat.S_ISDIR(_stat_no_reparse(folder).st_mode):
-            raise UnsafeResearchPath("lock directory is not a real directory")
-    else:
-        folder.mkdir()
+    # mkdir(exist_ok=True) handles two cooperating workers racing to
+    # create the directory; lstat must still reject any substituted link.
+    folder.mkdir(exist_ok=True)
+    if not stat.S_ISDIR(_stat_no_reparse(folder).st_mode):
+        raise UnsafeResearchPath("lock directory is not a real directory")
     lock = folder / f"pack-{drop_id}.lck"
     if lock.exists() or lock.is_symlink():
         if not stat.S_ISREG(_stat_no_reparse(lock).st_mode):
