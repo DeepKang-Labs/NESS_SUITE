@@ -1,0 +1,32 @@
+name: Burn path safety repeated adversarial replay (synthetic research)
+
+on:
+  push:
+    branches:
+      - research/burn-path-safety-recovery-20261108
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay-adversarial-paths:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Repeat marked-sandbox link and interruption tests three times
+        shell: bash
+        run: |
+          set -euo pipefail
+          for trial in 1 2 3; do
+            echo "Adversarial path / cleanup crash replay $trial/3"
+            python -m unittest discover -s tests -p test_burn_path_safety_recovery.py -v
+          done
