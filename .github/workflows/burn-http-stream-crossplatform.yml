@@ -1,0 +1,39 @@
+name: Burn real HTTP streaming cross-platform experiment
+
+on:
+  push:
+    branches:
+      - research/burn-http-stream-crossplatform-20261108
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  loopback-streaming:
+    name: HTTP streaming and cleanup
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test actual HTTP chunks and cross-process cleanup (synthetic only)
+        run: python -m unittest discover -s tests -p test_burn_http_stream_crossplatform.py -v
+
+  existing-burn-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Original 21 NESS Burn regression tests
+        run: python -m unittest discover -s tests -p test_burn_download_quota.py -v
