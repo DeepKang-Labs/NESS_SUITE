@@ -6,8 +6,8 @@
 
 - Upstream: [Frahane/NESS_SUITE](https://github.com/Frahane/NESS_SUITE)
 - Original accepted contribution: [PR #1](https://github.com/Frahane/NESS_SUITE/pull/1)
-- In-process cleanup regression fix awaiting policy review: [draft PR #2](https://github.com/Frahane/NESS_SUITE/pull/2)
-- Research base: contributor commit `ae4122ed5db5458eb93eb98b4c6aa91dc5542c52`, corresponding to draft PR #2.
+- In-process cleanup regression fix: [PR #2](https://github.com/Frahane/NESS_SUITE/pull/2), **merged by Frahane on 2026-11-08 at 16:29:19 UTC**, merge commit `c9b08546979af4ca62b62a35d5e7ea211daa678f`.
+- Research base: contributor commit `ae4122ed5db5458eb93eb98b4c6aa91dc5542c52` (the code subsequently accepted in PR #2). Research experiments remain isolated from the official application.
 - Research branch: `research/burn-multiprocess-invariants-20261108`. It is deliberately separate from the PR #2 branch, from upstream `main`, and from the contributor fork's `main`.
 
 ## Actual experiments on GitHub-hosted Ubuntu / Python 3.12
@@ -25,7 +25,7 @@
 
 The NESS Burn module holds `_VIEW_SESSIONS` in a process-local Python dictionary. The existing `_view_session_ok` and `cleanup_burn_expired` consult this dictionary. Different application workers do not share it.
 
-The single-process guard in draft PR #2 remains worth evaluating on its stated scope, but it cannot by itself enforce a cross-worker guarantee. A second process may purge a quota-closed pack while the first has an authorized finishing session. Separately, a token issued by one worker is unknown to another.
+The single-process guard accepted in PR #2 addresses its stated scope, but does not by itself enforce a cross-worker guarantee. A second process may purge a quota-closed pack while the first has an authorized finishing session. Separately, a token issued by one worker is unknown to another.
 
 ## Candidate invariants
 
@@ -65,7 +65,7 @@ Five tests cover: external cleanup refusal while live; lease expiration and clea
 - **Confirmed:** Cross-process limitations are demonstrable with two independent interpreters.
 - **Confirmed:** A transactionally published SQLite lease can satisfy five isolated modeled properties.
 - **NOT confirmed:** That the isolated code is a safe drop-in replacement for NESS Burn.
-- **No upstream change:** Draft PR #2 remains unchanged; no upstream `main` modification, new upstream PR, or automatic merge.
+- **Upstream status (verified 2026-11-08):** Frahane independently merged PR #2 into upstream `main`. This research branch made no additional upstream modifications, upstream PRs, or automatic merges.
 - **Next gate:** Ask Frahane whether finishing a multi-file pack after quota exhaustion is the intended policy and whether the deployment uses multiple worker processes. Keep this as a separate research track pending that answer.
 
 
@@ -132,4 +132,4 @@ The green result on the *multi-process contract* workflow is a **negative contro
 4. Test migration, reboots, failed `rmtree`, file permission errors, high contention, and Windows behavior.
 5. Only then consider a narrowly-scoped implementation PR; do not mix this research branch into PR #2 or upstream `main`.
 
-**Decision:** Keep PR #2 unchanged. Maintain the new results as an exploratory branch with CI evidence; no production or live-data claims.
+**Decision:** PR #2 has been merged by Frahane and its in-process safeguard is present in upstream `burn.py` at `420811ccb5b9c2e867e17254652efeaa083242c8`. Maintain the subsequent cross-process research as a separate exploratory branch with CI evidence; do not claim it is deployed or that production/live-data behavior has been validated.
