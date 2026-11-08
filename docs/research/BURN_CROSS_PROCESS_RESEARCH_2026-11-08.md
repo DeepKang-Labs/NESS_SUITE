@@ -67,3 +67,69 @@ Five tests cover: external cleanup refusal while live; lease expiration and clea
 - **NOT confirmed:** That the isolated code is a safe drop-in replacement for NESS Burn.
 - **No upstream change:** Draft PR #2 remains unchanged; no upstream `main` modification, new upstream PR, or automatic merge.
 - **Next gate:** Ask Frahane whether finishing a multi-file pack after quota exhaustion is the intended policy and whether the deployment uses multiple worker processes. Keep this as a separate research track pending that answer.
+
+
+## Continuation: bounded I/O and recoverable cleanup (2026-11-08)
+
+**Branch-only research changes; no modification to upstream or draft PR #2.**
+
+The original shared SQLite lease model did not model *in-flight reads*. Its first five tests establish an atomic quota-closure and finishing-authorization claim, but do not protect a stream after its session expires. Two additional **research-only** modules now explore this separate property.
+
+### V2 transfer and deletion-fencing model
+
+- [Model source](../../research/burn_transfer_fencing_model.py)
+- [Ten tests](../../tests/test_burn_transfer_fencing_model.py)
+- [Successful GitHub Actions run 42495913297](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42495913297)
+- [Final-revision rerun 42496101710](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42496101710)
+
+The proposed experiment uses durable, hashed per-request transfer pins and SQLite `BEGIN IMMEDIATE` transactions to serialize read start against deletion claiming:
+
+1. A session and a quota-closed multi-file pack must be valid **at read start** to create a pin.
+2. A pin has a hard upper bound; it is capped by its read-window deadline and `drop_expiry + bounded_grace`.
+3. No new read may start once a cleanup worker has claimed the drop for deletion.
+4. Cleanup refuses to claim while a valid finishing-session lease or an unfinished, unexpired read pin exists.
+5. When deletion is permitted, the database grants an exclusive *owner token* and increments a *deletion generation*. A crash-recovery worker may reclaim the deletion only after the preceding lease expires.
+6. A stale worker's prior owner/generation cannot mark the newer deletion complete.
+
+**Confirmed in the isolated model:** ten unit tests covering independent-process expiry/cleanup, token binding, concurrent cleanup claims, forced process exit after a committed deletion claim, fencing, and stale-owner rejection. These tests do **not** model actual live HTTP streaming; once a read deadline passes, the application would have to stop using the source file safely.
+
+### Synthetic filesystem interruption experiments
+
+- [Marked-sandbox adapter](../../research/burn_filesystem_crash_harness.py)
+- [Six filesystem crash tests](../../tests/test_burn_filesystem_crash_harness.py)
+- [Successful GitHub Actions run 42496101810](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42496101810)
+
+These tests create only synthetic files in `TemporaryDirectory` and require a sandbox marker before any deletion. The cleanup adapter atomically acquires a SQLite deletion claim, renames the simulated pack folder to a staging location on the same filesystem, deletes staged files, then marks deletion complete.
+
+Injected OS-process exits after **claim** and after **staging** prove that a second independent interpreter can recover expired deletion claims and clean up staged files. A live read pin blocks deletion of the synthetic pack until its bounded window ends or the read is recorded complete. Attempts outside a marked sandbox are refused.
+
+**Results at final tested source revision `2600a9d`:**
+
+| Test tier | Cases | GitHub Actions |
+| --- | ---: | --- |
+| Original SQLite finishing-lease model | 5 passed | [42496101790](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42496101790) |
+| Transfer-fencing and crash-recovery model | 10 passed | [42496101710](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42496101710) |
+| Temporary-filesystem crash experiments | 6 passed | [42496101810](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42496101810) |
+| Existing original Burn regression suite | 21 passed | [42496101751](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42496101751) |
+| Two expected multi-process contract failures on real NESS Burn code | Both failures reproduced | [42496101751](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42496101751) |
+
+The green result on the *multi-process contract* workflow is a **negative control**: the workflow explicitly expects the existing application to fail both contracts. Do not sum those as fixed cases.
+
+### Scientific limits and new adversarial gates
+
+**Not proven:**
+- Real Flask route integration, an actual streamed response body, or a client consuming data during a deletion race.
+- Windows file-handle and directory-rename behavior; tests were run on Linux.
+- No stale OS process will perform filesystem operations after its deletion-lease deadline. A database-generation check alone does **not** fence arbitrary filesystem syscalls. This would require per-operation ownership rechecks, renewal, or an architecture with one deletion worker and tightly bounded operations.
+- Safety under shared network filesystems or several database hosts. Tests assume a **single local SQLite file** and one shared filesystem.
+- Crash consistency or durability of the directory rename / SQLite commit *as a single atomic operation*. They are separate resources and require careful recovery and filesystem synchronization decisions.
+- Safe schema migration of existing production drops, secret-handling practices, and any throughput/performance guarantee.
+
+**Next safety gates before recommending an upstream implementation:**
+1. Confirm with Frahane the actual worker topology and the desired rule for a final multi-file session versus strict expiration.
+2. Model an actual streaming/open-handle lifecycle and deletion race, including read abort on pin expiry.
+3. Introduce recoverable deletion work ownership that prevents a stale worker from performing destructive OS operations after lease reassignment (not just a stale database completion).
+4. Test migration, reboots, failed `rmtree`, file permission errors, high contention, and Windows behavior.
+5. Only then consider a narrowly-scoped implementation PR; do not mix this research branch into PR #2 or upstream `main`.
+
+**Decision:** Keep PR #2 unchanged. Maintain the new results as an exploratory branch with CI evidence; no production or live-data claims.
