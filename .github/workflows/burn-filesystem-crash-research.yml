@@ -1,0 +1,22 @@
+name: Burn filesystem crash harness (marked synthetic sandbox only)
+
+on:
+  push:
+    branches:
+      - research/burn-multiprocess-invariants-20261108
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-crash-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Synthetic temp filesystem crash and reclamation experiments
+        run: python -m unittest discover -s tests -p 'test_burn_filesystem_crash_harness.py' -v
