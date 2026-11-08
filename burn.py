@@ -482,18 +482,7 @@ def cleanup_burn_expired():
                OR (status IN ('burned', 'expired') AND files_json <> '[]')""",
             (now,),
         ).fetchall()
-        # Take the session snapshot after reading the rows. The claim holds
-        # this lock from the SQLite update through session-marker publication.
-        with _VIEW_SESSIONS_LOCK:
-            session_now = time.time()
-            finishing = {
-                rec["drop"] for rec in _VIEW_SESSIONS.values()
-                if rec.get("finishes_pack") and rec.get("exp", 0) > session_now
-            }
         for row in rows:
-            if (row["status"] == "burned" and row["expires_at"] > now
-                    and row["public_token"] in finishing):
-                continue
             _destroy_drop(conn, row)
             if row["status"] != "burned":
                 conn.execute(
