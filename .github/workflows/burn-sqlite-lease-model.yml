@@ -1,0 +1,22 @@
+name: Burn SQLite lease model (isolated research)
+
+on:
+  push:
+    branches:
+      - research/burn-multiprocess-invariants-20261108
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sqlite-lease-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Five independent-process SQLite lease model tests
+        run: python -m unittest discover -s tests -p 'test_burn_sqlite_lease_model.py' -v
