@@ -1,0 +1,24 @@
+name: Burn transfer fencing and crash recovery (research only)
+
+on:
+  push:
+    branches:
+      - research/burn-multiprocess-invariants-20261108
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fenced-transfer-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run bounded transfer pin and deletion crash tests (research model)
+        run: python -m unittest discover -s tests -p 'test_burn_transfer_fencing_model.py' -v
+      - name: Re-run five predecessor SQLite lease model tests
+        run: python -m unittest discover -s tests -p 'test_burn_sqlite_lease_model.py' -v
