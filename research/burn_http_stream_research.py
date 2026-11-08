@@ -120,7 +120,10 @@ def serve(db_path, root_path, drop_id, transfer_window, drop_grace):
     httpd.drop_id = drop_id
     httpd.transfer_window = transfer_window
     httpd.drop_grace = drop_grace
-    (root / "server-port").write_text(str(httpd.server_port), encoding="ascii")
+    # Publish readiness atomically: observers must never read a zero-byte port file.
+    temporary_port_file = root / "server-port.tmp"
+    temporary_port_file.write_text(str(httpd.server_port), encoding="ascii")
+    temporary_port_file.replace(root / "server-port")
     try:
         httpd.serve_forever(poll_interval=0.05)
     finally:
