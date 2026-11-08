@@ -482,7 +482,20 @@ def cleanup_burn_expired():
                OR (status IN ('burned', 'expired') AND files_json <> '[]')""",
             (now,),
         ).fetchall()
+        # Do not wipe a closed pack while its quota-consuming session
+        # is still allowed to finish downloading the remaining files.
+        # This registry is process-local; multi-worker cleanup requires
+        # coordinating the finishing-session lease across workers.
+        with _VIEW_SESSIONS_LOCK:
+            session_now = time.time()
+            finishing = {
+                rec["drop"] for rec in _VIEW_SESSIONS.values()
+                if rec.get("finishes_pack") and rec.get("exp", 0) > session_now
+            }
         for row in rows:
+            if (row["status"] == "burned" and row["expires_at"] > now
+                    and row["public_token"] in finishing):
+                continue
             _destroy_drop(conn, row)
             if row["status"] != "burned":
                 conn.execute(
