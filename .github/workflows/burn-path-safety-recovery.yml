@@ -1,0 +1,44 @@
+name: Burn path safety and deletion failure recovery (research only)
+
+on:
+  push:
+    branches:
+      - research/burn-path-safety-recovery-20261108
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adversarial-sandbox:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Path refusal and synthetic interrupted deletion tests
+        run: python -m unittest discover -s tests -p test_burn_path_safety_recovery.py -v
+      - name: Original eight portable cleanup tests
+        run: python -m unittest discover -s tests -p test_burn_portable_cleanup_fencing.py -v
+
+  unchanged-application:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Unchanged Burn quota regressions
+        run: python -m unittest discover -s tests -p test_burn_download_quota.py -v
