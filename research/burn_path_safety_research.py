@@ -40,7 +40,11 @@ def checked_root(path: str | Path) -> Path:
     if not stat.S_ISDIR(_stat_no_reparse(root).st_mode):
         raise UnsafeResearchPath("research sandbox must be a real directory")
     marker = root / ".burn_research_sandbox_only"
-    if not stat.S_ISREG(_stat_no_reparse(marker).st_mode):
+    try:
+        marker_stat = _stat_no_reparse(marker)
+    except UnsafeResearchPath as exc:
+        raise UnsafeResearchPath("marked research sandbox required") from exc
+    if not stat.S_ISREG(marker_stat.st_mode):
         raise UnsafeResearchPath("research sandbox marker must be a regular file")
     return root.resolve(strict=True)
 
