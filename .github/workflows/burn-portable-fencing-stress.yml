@@ -1,0 +1,32 @@
+name: Burn portable fencing repeated-race stability (research)
+
+on:
+  push:
+    branches:
+      - research/burn-portable-cleanup-fencing-20261108
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repeat-adversarial-process-races:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Repeat all eight independent-process locking tests five times
+        shell: bash
+        run: |
+          set -euo pipefail
+          for iteration in 1 2 3 4 5; do
+            echo "Research stability replay $iteration/5"
+            python -m unittest discover -s tests -p test_burn_portable_cleanup_fencing.py -v
+          done
