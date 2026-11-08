@@ -104,3 +104,27 @@ The complete 54-cases-per-OS matrix was rerun successfully on the same research 
 Contributor fork `DeepKang-Labs/NESS_SUITE:main` was fast-forwarded without force from `555a05dfe1fcf6f0aec734906b3066718f6db950` to upstream `Frahane/NESS_SUITE:main` at `420811ccb5b9c2e867e17254652efeaa083242c8`. GitHub comparison confirmed this to be an **eight-commit fast-forward with zero divergent contributor commits**. The research branches remain separate and have not been merged into `main`. This is repository synchronization, not an upstream code contribution.
 
 **Current gate:** No upstream PR should be opened from this research branch unless deployment topology, policy for multi-file quota exhaustion, filesystem path-hardening, durability and fail-closed migration strategy are reviewed.
+
+## Adversarial reruns and harness correction (same date)
+
+A previous **intermediate** matrix run [42519793496](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42519793496) reported **failure** for the *Windows HTTP streaming research harness only*. The original 21 Burn regressions and the Windows/Ubuntu portable locking tests in that run were successful. Examination of the failing job log showed:
+
+```text
+test_http_stream_aborts_at_hard_pin_deadline ... ERROR
+ValueError: invalid literal for int() with base 10: ''
+at tests/test_burn_http_stream_crossplatform.py:76
+```
+
+The HTTP server wrote `server-port` directly via `Path.write_text`. A separate test process observed the file *after creation but before the port digits were written*. The failure is a **readiness-publication race in our research harness**, not evidence of a Burn application download failure.
+
+**Fix:** The synthetic HTTP server now fully writes `server-port.tmp` and atomically renames it to `server-port`. This was committed on both the source HTTP research branch (`4381799`) and this portable-fencing child branch (`3ca85c0`).
+
+**Fresh CI after fix:**
+
+- [42520009624](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42520009624): full **54 tests/OS** matrix successful, including unchanged 21 Burn regressions per OS.
+- [42520009613](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42520009613): **five complete repetitions of eight portable-locking tests per OS = 80 test executions**, all successful.
+- [42520009748](https://github.com/DeepKang-Labs/NESS_SUITE/actions/runs/42520009748): **six complete repetitions of four synthetic HTTP tests per OS = 48 test executions**, all successful.
+
+These repeated runs provide better reproducibility evidence. They do **not** prove the absence of races, nor eliminate the need for production failure injection and load testing.
+
+**Integrity note:** The failure is retained in the research trail; do not silently discard failed CI runs when interpreting evidence.
