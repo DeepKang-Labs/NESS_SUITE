@@ -74,6 +74,10 @@ NCH_PAYMENT_ADDRESS = _env(
     "NESS1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
 )
 
+# Public site origin for absolute Open Graph URLs (optional).
+# Example: https://suite.example.com — if empty, built from each request.
+PUBLIC_BASE_URL = (_env("PUBLIC_BASE_URL", "") or "").strip().rstrip("/")
+
 # Comma-separated explorer base URLs
 _explorer_raw = _env(
     "NESS_EXPLORER_URLS",

@@ -1134,6 +1134,63 @@ body::before {
   border-color: var(--line-hi);
   color: var(--text-hi);
 }
+
+.suite-sep {
+  height: 1px;
+  margin: 0.85rem 0.35rem 0.65rem;
+  background: var(--line);
+}
+.suite-section-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0.15rem 0 0.45rem;
+  padding: 0 0.35rem;
+}
+.suite-link-ext {
+  border-color: rgba(0, 255, 65, 0.12);
+  background: rgba(0, 255, 65, 0.03);
+}
+.suite-link-ext:hover {
+  border-color: var(--line-hi);
+  background: var(--plan-bg-hover);
+}
+.suite-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.suite-link-main {
+  font-weight: 600;
+  color: var(--text-hi);
+}
+.suite-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid rgba(0, 255, 65, 0.28);
+  background: rgba(0, 255, 65, 0.08);
+  border-radius: 999px;
+  padding: 0.18rem 0.45rem;
+  line-height: 1.2;
+}
+.suite-link-ext .suite-link-hint {
+  display: block;
+  margin-top: 0.2rem;
+}
+.suite-drawer-note {
+  margin: 0.75rem 0.35rem 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .suite-drawer-foot {
   margin-top: 1.5rem;
   padding: 0 0.35rem;
@@ -1221,4 +1278,63 @@ body::before {
 }
 @keyframes ness-spin {
   to { transform: rotate(360deg); }
+}
+
+/* Data Poisoner install guide (suite companion) */
+.suite-link-btn {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: rgba(0, 255, 65, 0.03);
+  font: inherit;
+}
+.poisoner-guide-overlay {
+  z-index: 12000;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+.poisoner-guide-overlay:not(.open) {
+  display: none !important;
+}
+.poisoner-guide-modal {
+  max-width: 440px;
+  width: calc(100% - 2rem);
+  max-height: min(90vh, 640px);
+  overflow: auto;
+}
+.poisoner-lead {
+  margin: 0.35rem 0 0.75rem;
+  color: var(--text);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+.poisoner-honest {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.poisoner-steps {
+  margin: 0 0 1.1rem 1.15rem;
+  padding: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.poisoner-steps li {
+  margin-bottom: 0.45rem;
+}
+.poisoner-actions {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.poisoner-actions .btn {
+  text-decoration: none;
+}
+.poisoner-foot {
+  margin: 0.85rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
 }

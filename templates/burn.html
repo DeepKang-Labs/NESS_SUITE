@@ -4,6 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NESS Burn — Publish &amp; vanish</title>
+
+<meta name="description" content="{{ og_description | default('PrivateNess Network suite') }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NESS Suite">
+<meta property="og:title" content="{{ og_title | default('NESS Suite') }}">
+<meta property="og:description" content="{{ og_description | default('PrivateNess Network suite') }}">
+<meta property="og:image" content="{{ og_image | default('/static/og/og-burn.png') }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{{ og_image_alt | default('NESS Suite') }}">
+<meta property="og:url" content="{{ og_url | default('') }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ og_title | default('NESS Suite') }}">
+<meta name="twitter:description" content="{{ og_description | default('PrivateNess Network suite') }}">
+<meta name="twitter:image" content="{{ og_image | default('/static/og/og-burn.png') }}">
+
 <script>
 (function () {
   try {
@@ -125,10 +141,10 @@
         <span class="rec-timer" id="rec-timer">0:00</span>
         <label class="opt-inline">
           <input type="checkbox" id="opt-voice-anon" checked>
-          <span>Anonymize voice</span>
+          <span>Anonymous voice mask</span>
         </label>
       </div>
-      <p class="audio-fineprint">Noise reduction is on. Optional voice anonymize runs before the note is attached.</p>
+      <p class="audio-fineprint">Noise reduction is on. Optional mask shifts pitch and formants on-device so the speaker is hard to identify while words stay understandable.</p>
       <div class="audio-preview" id="audio-preview" hidden>
         <div id="audio-player-mount"></div>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-audio-discard">Discard</button>

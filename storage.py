@@ -324,11 +324,17 @@ def _mount_routes(app, deps):
     @app.route("/storage")
     def storage_shell():
         if HAS_FLASK and render_template:
+            try:
+                from app import build_og_meta
+                meta = build_og_meta("storage", path="/storage")
+            except Exception:
+                meta = {}
             return render_template(
                 "storage.html",
                 pay_address=NCH_PAYMENT_ADDRESS,
                 tiers=_public_tiers(),
                 storage_backend=(STORAGE_BACKEND or "local"),
+                **meta,
             )
         return ("Storage UI requires Flask templates", 500)
 

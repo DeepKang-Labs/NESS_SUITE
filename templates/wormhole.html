@@ -4,6 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NESS Wormhole</title>
+
+<meta name="description" content="{{ og_description | default('PrivateNess Network suite') }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NESS Suite">
+<meta property="og:title" content="{{ og_title | default('NESS Suite') }}">
+<meta property="og:description" content="{{ og_description | default('PrivateNess Network suite') }}">
+<meta property="og:image" content="{{ og_image | default('/static/og/og-wormhole.png') }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{{ og_image_alt | default('NESS Suite') }}">
+<meta property="og:url" content="{{ og_url | default('') }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ og_title | default('NESS Suite') }}">
+<meta name="twitter:description" content="{{ og_description | default('PrivateNess Network suite') }}">
+<meta name="twitter:image" content="{{ og_image | default('/static/og/og-wormhole.png') }}">
+
 <script>
 (function () {
   try {
@@ -56,7 +72,7 @@
     </button>
       <div class="status-pill">
         <span class="status-dot online"></span>
-        <span>Client-side tools · NCH access when configured</span>
+        <span>Browser-side tools</span>
       </div>
     </div>
     <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle light / dark mode" title="Toggle theme">
@@ -87,7 +103,7 @@
       </a>
     </div>
   </div>
-  <p class="foot">Wormhole tools run entirely in your browser. They do not use NESS Coin-hours or server-side storage.</p>
+  <p class="foot">Cryptography runs in your browser. Paid access uses NCH when a license is required — no server-side content vault.</p>
 </div>
 <script src="/static/js/suite-nav.js"></script>
 <script src="/static/js/wormhole-suite.js"></script>

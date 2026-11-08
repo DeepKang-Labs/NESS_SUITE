@@ -1317,40 +1317,181 @@ async function finishRecording() {
   attachPendingAudio();
 }
 
+/**
+ * Anonymous-style voice mask — hard to identify, still understandable, fast.
+ *
+ * Identity is mostly F0 + formants. We:
+ *  1) pitch-shift ~−6 semitones *without* changing duration (grain OLA),
+ *  2) mild formant offset via secondary EQ,
+ *  3) telephone band + light robotic ring,
+ *  4) fast 16 kHz WAV (offline only — no real-time MediaRecorder).
+ */
 async function anonymizeVoiceBlob(blob) {
-  const semitones = 5;
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const arr = await blob.arrayBuffer();
-  const decoded = await ctx.decodeAudioData(arr.slice(0));
-  const ratio = Math.pow(2, semitones / 12);
-  const srcLen = decoded.length;
-  const outLen = Math.floor(srcLen / ratio);
-  const offline = new OfflineAudioContext(1, Math.max(1, outLen), decoded.sampleRate);
-  const mono = offline.createBuffer(1, srcLen, decoded.sampleRate);
-  const outCh = mono.getChannelData(0);
-  const nCh = decoded.numberOfChannels;
-  for (let i = 0; i < srcLen; i++) {
-    let s = 0;
-    for (let c = 0; c < nCh; c++) s += decoded.getChannelData(c)[i];
-    outCh[i] = s / nCh;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new Ctx();
+  let decoded;
+  try {
+    const arr = await blob.arrayBuffer();
+    decoded = await ctx.decodeAudioData(arr.slice(0));
+  } finally {
+    try { await ctx.close(); } catch (e) {}
   }
+
+  const srIn = decoded.sampleRate || 48000;
+  const nCh = decoded.numberOfChannels;
+  const srcLen = decoded.length;
+  const sr = 16000;
+  const ratioSr = sr / srIn;
+  const workLen = Math.max(1, Math.floor(srcLen * ratioSr));
+
+  // Mono → 16 kHz
+  const mono = new Float32Array(workLen);
+  for (let i = 0; i < workLen; i++) {
+    const srcPos = i / ratioSr;
+    const i0 = Math.floor(srcPos);
+    const i1 = Math.min(srcLen - 1, i0 + 1);
+    const frac = srcPos - i0;
+    let s0 = 0, s1 = 0;
+    for (let c = 0; c < nCh; c++) {
+      const ch = decoded.getChannelData(c);
+      s0 += ch[i0];
+      s1 += ch[i1];
+    }
+    mono[i] = (s0 + (s1 - s0) * frac) / nCh;
+  }
+
+  // Pitch down, same duration (destroys natural F0 / speaker cue)
+  const pitched = pitchShiftDurationPreserve(mono, sr, -6);
+
+  // Offline EQ / compress at same length
+  const offline = new OfflineAudioContext(1, pitched.length, sr);
+  const bufIn = offline.createBuffer(1, pitched.length, sr);
+  bufIn.copyToChannel(pitched, 0);
   const source = offline.createBufferSource();
-  source.buffer = mono;
-  source.playbackRate.value = ratio;
-  const highpass = offline.createBiquadFilter();
-  highpass.type = "highpass";
-  highpass.frequency.value = 120;
-  const lowpass = offline.createBiquadFilter();
-  lowpass.type = "lowpass";
-  lowpass.frequency.value = 3800;
-  source.connect(highpass);
-  highpass.connect(lowpass);
-  lowpass.connect(offline.destination);
+  source.buffer = bufIn;
+
+  const hp = offline.createBiquadFilter();
+  hp.type = "highpass";
+  hp.frequency.value = 180;
+  hp.Q.value = 0.7;
+
+  // Shift perceived formants away from natural voice
+  const notch = offline.createBiquadFilter();
+  notch.type = "notch";
+  notch.frequency.value = 900;
+  notch.Q.value = 1.2;
+
+  const formant = offline.createBiquadFilter();
+  formant.type = "peaking";
+  formant.frequency.value = 2200;
+  formant.Q.value = 1.1;
+  formant.gain.value = 5;
+
+  const lp = offline.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 3800;
+  lp.Q.value = 0.75;
+
+  const comp = offline.createDynamicsCompressor();
+  comp.threshold.value = -20;
+  comp.knee.value = 10;
+  comp.ratio.value = 5;
+  comp.attack.value = 0.004;
+  comp.release.value = 0.12;
+
+  source.connect(hp);
+  hp.connect(notch);
+  notch.connect(formant);
+  formant.connect(lp);
+  lp.connect(comp);
+  comp.connect(offline.destination);
   source.start(0);
   const rendered = await offline.startRendering();
-  await ctx.close();
-  return encodeWavBlob(rendered);
+  const data = rendered.getChannelData(0);
+  const len = data.length;
+
+  // Light robotic color (identification, not mud)
+  const carrierHz = 60;
+  const ringMix = 0.22;
+  const drive = 1.35;
+  const twoPi = Math.PI * 2;
+  let peakAbs = 0;
+  const out = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    let s = Math.tanh(data[i] * drive);
+    const ring = s * Math.sin(twoPi * carrierHz * (i / sr));
+    s = s * (1 - ringMix) + ring * ringMix;
+    out[i] = s;
+    const a = Math.abs(s);
+    if (a > peakAbs) peakAbs = a;
+  }
+  const g = peakAbs > 1e-6 ? 0.9 / peakAbs : 1;
+  for (let i = 0; i < len; i++) {
+    let s = out[i] * g;
+    if (s > 0.97) s = 0.97;
+    else if (s < -0.97) s = -0.97;
+    out[i] = s;
+  }
+
+  const ac = new Ctx();
+  const outBuf = ac.createBuffer(1, len, sr);
+  outBuf.copyToChannel(out, 0);
+  const result = encodeWavBlob(outBuf);
+  try { await ac.close(); } catch (e) {}
+  return result;
 }
+
+/**
+ * Pitch shift by `semitones` keeping buffer length (OLA grains).
+ * Negative semitones → deeper; breaks speaker F0 while words stay timed.
+ */
+function pitchShiftDurationPreserve(input, sampleRate, semitones) {
+  const pitchRatio = Math.pow(2, semitones / 12); // e.g. -6 → ~0.707
+  const n = input.length;
+  if (n < 64) return input;
+
+  const grainSize = 1024;
+  const hopOut = 256;
+  const hopIn = hopOut * pitchRatio;
+  const out = new Float32Array(n);
+  const norm = new Float32Array(n);
+  const win = new Float32Array(grainSize);
+  for (let i = 0; i < grainSize; i++) {
+    win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (grainSize - 1));
+  }
+
+  let inPos = 0;
+  let outPos = 0;
+  while (outPos < n) {
+    for (let i = 0; i < grainSize; i++) {
+      const o = outPos + i;
+      if (o >= n) break;
+      // Resample input grain: pitchRatio < 1 → read slower through source (deeper)
+      const srcIndex = inPos + i * pitchRatio;
+      const i0 = Math.floor(srcIndex);
+      const i1 = i0 + 1;
+      let s = 0;
+      if (i0 >= 0 && i0 < n) {
+        const frac = srcIndex - i0;
+        const a = input[i0] || 0;
+        const b = i1 < n ? input[i1] : 0;
+        s = a + (b - a) * frac;
+      }
+      const w = win[i];
+      out[o] += s * w;
+      norm[o] += w;
+    }
+    inPos += hopIn;
+    outPos += hopOut;
+    if (inPos >= n - 1) break;
+  }
+
+  for (let i = 0; i < n; i++) {
+    if (norm[i] > 1e-6) out[i] /= norm[i];
+  }
+  return out;
+}
+
 
 function encodeWavBlob(buffer) {
   const sampleRate = buffer.sampleRate;

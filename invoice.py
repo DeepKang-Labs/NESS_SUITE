@@ -227,9 +227,16 @@ def _mount_routes(app, deps: dict):
     explorer_payload = deps["_explorer_unavailable_payload"]
     json_mod = deps.get("json", json)
 
-    def _page():
+    def _page(extra=None):
+        extra = extra or {}
         if HAS_FLASK and render_template:
-            return render_template("invoice.html")
+            try:
+                from app import build_og_meta
+                meta = build_og_meta("invoice", path="/invoice")
+                meta.update(extra)
+            except Exception:
+                meta = dict(extra)
+            return render_template("invoice.html", **meta)
         html = (BASE_DIR / "templates" / "invoice.html").read_text(encoding="utf-8")
         return html
 
@@ -239,6 +246,43 @@ def _mount_routes(app, deps: dict):
 
     @app.route("/invoice/i/<token>")
     def invoice_public_page(token):
+        """Public pay link — Open Graph image follows invoice purpose."""
+        purpose = "invoice"
+        title_override = None
+        desc_override = None
+        try:
+            db = get_db()
+            row = db.execute(
+                "SELECT purpose, title, description, amount_nch, status FROM invoices WHERE public_token = ?",
+                (token,),
+            ).fetchone()
+            if row:
+                purpose = (row["purpose"] if "purpose" in row.keys() else "invoice") or "invoice"
+                purpose = str(purpose).strip().lower()
+                if purpose not in ("invoice", "coffee", "fund", "other", "tips"):
+                    purpose = "invoice"
+                t = (row["title"] or "").strip()
+                if t:
+                    title_override = t[:80]
+                amt = row["amount_nch"]
+                label = PURPOSE_CHOICES.get(purpose, PURPOSE_CHOICES["invoice"])["label"]
+                if amt is not None:
+                    desc_override = f"{label} · {amt} NCH — PrivateNess Network"
+        except Exception as exc:
+            print(f"[INVOICE] public og lookup: {exc}")
+
+        if HAS_FLASK and render_template:
+            try:
+                from app import build_og_meta
+                meta = build_og_meta(
+                    purpose,
+                    title=title_override,
+                    description=desc_override,
+                    path=f"/invoice/i/{token}",
+                )
+            except Exception:
+                meta = {}
+            return render_template("invoice.html", **meta)
         return _page()
 
     @app.route("/api/invoice/ping", methods=["GET"])

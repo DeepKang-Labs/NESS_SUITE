@@ -390,24 +390,42 @@ def register(app, deps: dict):
     if HAS_FLASK and render_template:
         @app.route("/wormhole")
         def wormhole_hub():
+            try:
+                from app import build_og_meta
+                meta = build_og_meta("wormhole", path="/wormhole")
+            except Exception:
+                meta = {}
             return render_template(
                 "wormhole.html",
                 tools=WORMHOLE_TOOLS,
                 pay_address=NCH_PAYMENT_ADDRESS,
+                **meta,
             )
 
         @app.route("/wormhole/dpo")
         def wormhole_dpo():
+            try:
+                from app import build_og_meta
+                meta = build_og_meta("wormhole", path="/wormhole/dpo")
+            except Exception:
+                meta = {}
             return render_template(
                 "wormhole_dpo.html",
                 tool=WORMHOLE_TOOLS["dpo"],
                 pay_address=NCH_PAYMENT_ADDRESS,
+                **meta,
             )
 
         @app.route("/wormhole/offline")
         def wormhole_offline():
+            try:
+                from app import build_og_meta
+                meta = build_og_meta("wormhole", path="/wormhole/offline")
+            except Exception:
+                meta = {}
             return render_template(
                 "wormhole_offline.html",
                 tool=WORMHOLE_TOOLS["offline"],
                 pay_address=NCH_PAYMENT_ADDRESS,
+                **meta,
             )

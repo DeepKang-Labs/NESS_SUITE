@@ -608,10 +608,16 @@ def _mount_routes(app, deps):
     def burn_index():
         tiers = _public_burn_tiers()
         if HAS_FLASK and render_template:
+            try:
+                from app import build_og_meta
+                meta = build_og_meta("burn", path="/burn")
+            except Exception:
+                meta = {}
             return render_template(
                 "burn.html",
                 pay_address=NCH_PAYMENT_ADDRESS,
                 tiers=tiers,
+                **meta,
             )
         html = (BASE_DIR / "templates" / "burn.html").read_text(encoding="utf-8")
         html = re.sub(
@@ -628,7 +634,20 @@ def _mount_routes(app, deps):
 
     @app.route("/burn/d/<token>")
     def burn_download_page(token):
-        # Same SPA shell; JS reads token from path
+        # Same SPA shell; JS reads token from path. OG always Burn (shared content card).
+        tiers = _public_burn_tiers()
+        if HAS_FLASK and render_template:
+            try:
+                from app import build_og_meta
+                meta = build_og_meta("burn", path=f"/burn/d/{token}")
+            except Exception:
+                meta = {}
+            return render_template(
+                "burn.html",
+                pay_address=NCH_PAYMENT_ADDRESS,
+                tiers=tiers,
+                **meta,
+            )
         return burn_index()
 
     @app.route("/api/burn/tiers", methods=["GET"])

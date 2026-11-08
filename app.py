@@ -394,6 +394,20 @@ else:
     _cap = int(__import__("os").environ.get("MAX_CONTENT_LENGTH_MB", "2048") or "2048")
     app.config["MAX_CONTENT_LENGTH"] = max(_cap, 64) * 1024 * 1024
 
+
+if HAS_FLASK and app is not None:
+    @app.context_processor
+    def _ness_og_context():
+        """Default Open Graph tags from path; views may override via render_template kwargs."""
+        try:
+            from flask import request, has_request_context
+            path = request.path if has_request_context() else "/"
+        except Exception:
+            path = "/"
+        meta = build_og_meta(og_slug_from_path(path), path=path)
+        return meta
+
+
     @app.teardown_appcontext
     def _close_db(_exc=None):
         db = g.pop("db", None)
@@ -796,6 +810,114 @@ def _public_tiers():
             "tagline": v["tagline"],
         }
     return out
+
+
+
+# ── Open Graph / social cards ───────────────────────────────────────────────
+# Images live at static/og/og-<slug>.png (1200×630). Named by product / purpose.
+
+_OG_CATALOG = {
+    "tempmail": {
+        "title": "NESS TempMail",
+        "description": "Sovereign temporary email — disposable inboxes with NCH plans.",
+        "image": "og-tempmail.png",
+    },
+    "burn": {
+        "title": "NESS Burn",
+        "description": "Ephemeral publish — notes, files, and voice that expire and burn.",
+        "image": "og-burn.png",
+    },
+    "invoice": {
+        "title": "NESS Pay — Invoice",
+        "description": "Request payment in NESS Coin-hours (NCH).",
+        "image": "og-invoice.png",
+    },
+    "coffee": {
+        "title": "NESS Pay — Buy me a coffee",
+        "description": "Tips and small support in NESS Coin-hours.",
+        "image": "og-coffee.png",
+    },
+    "fund": {
+        "title": "NESS Pay — Fundraiser",
+        "description": "Collect toward a goal with NESS Coin-hours.",
+        "image": "og-fund.png",
+    },
+    "other": {
+        "title": "NESS Pay — Payment request",
+        "description": "Custom NCH payment link on PrivateNess Network.",
+        "image": "og-other.png",
+    },
+    "tips": {
+        "title": "NESS Pay — Tips",
+        "description": "Support with NESS Coin-hours.",
+        "image": "og-tips.png",
+    },
+    "storage": {
+        "title": "NESS Storage",
+        "description": "Private encrypted vault on your device — not for sharing.",
+        "image": "og-storage.png",
+    },
+    "wormhole": {
+        "title": "NESS Wormhole",
+        "description": "Physical possession and offline sealed pairs — client-side tools.",
+        "image": "og-wormhole.png",
+    },
+}
+
+
+def public_base_url() -> str:
+    """Absolute origin for og:image / og:url. Prefer PUBLIC_BASE_URL, else request."""
+    try:
+        from config import PUBLIC_BASE_URL as _PBU
+        if _PBU:
+            return str(_PBU).rstrip("/")
+    except Exception:
+        pass
+    if HAS_FLASK:
+        try:
+            from flask import request, has_request_context
+            if has_request_context() and request:
+                return request.url_root.rstrip("/")
+        except Exception:
+            pass
+    return ""
+
+
+def build_og_meta(slug: str, *, title: str | None = None, description: str | None = None,
+                  path: str | None = None) -> dict:
+    """Return dict for templates: og_title, og_description, og_image, og_url, og_slug."""
+    base = public_base_url()
+    key = (slug or "tempmail").strip().lower()
+    if key not in _OG_CATALOG:
+        key = "tempmail"
+    cat = _OG_CATALOG[key]
+    img_name = cat["image"]
+    image = f"{base}/static/og/{img_name}" if base else f"/static/og/{img_name}"
+    url_path = path if path is not None else "/"
+    if not url_path.startswith("/"):
+        url_path = "/" + url_path
+    og_url = f"{base}{url_path}" if base else url_path
+    return {
+        "og_slug": key,
+        "og_title": title or cat["title"],
+        "og_description": description or cat["description"],
+        "og_image": image,
+        "og_url": og_url,
+        "og_image_alt": title or cat["title"],
+    }
+
+
+def og_slug_from_path(path: str) -> str:
+    p = path or "/"
+    if p.startswith("/burn"):
+        return "burn"
+    if p.startswith("/storage"):
+        return "storage"
+    if p.startswith("/wormhole"):
+        return "wormhole"
+    if p.startswith("/invoice"):
+        return "invoice"
+    return "tempmail"
 
 
 @app.route("/")
