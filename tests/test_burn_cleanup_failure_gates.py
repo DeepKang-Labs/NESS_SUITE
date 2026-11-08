@@ -134,7 +134,9 @@ class BurnSingleProcessCleanupGates(unittest.TestCase):
         self.assertNotEqual(self._status(self.token)[1], "[]")
         self.assertTrue(second.is_file())
         self.burn.cleanup_burn_expired()
-        self.assertEqual(self._status(self.token), ("expired", "[]"))
+        # This synthetic expiry is >7 days old: a fully cleared row is
+        # pruned by the existing retention rule in the very same cleanup.
+        self.assertIsNone(self._status(self.token))
         self.assertFalse(self.folder.exists())
 
     def test_one_failed_pack_does_not_block_another_pack_cleanup(self):
